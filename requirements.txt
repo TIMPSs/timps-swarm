@@ -1,0 +1,43 @@
+# ── Core framework ────────────────────────────────────────────────
+langgraph==0.2.60
+langchain==0.3.0
+langchain-core==0.3.0
+
+# ── API server ────────────────────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic==2.9.0
+python-multipart==0.0.12
+
+# ── LLM integrations ──────────────────────────────────────────────
+requests==2.32.3
+httpx==0.27.2
+
+# ── HuggingFace (TIMPS-Coder model loading) ───────────────────────
+transformers==4.46.0
+huggingface-hub==0.26.0
+datasets==3.0.0
+tokenizers==0.20.0
+
+# ── Optional: PEFT for adapter hot-swapping ───────────────────────
+peft==0.13.2
+
+# ── ML backends (install the right one for your hardware) ─────────
+# For Apple Silicon (MLX):
+#   pip install mlx-lm
+# For NVIDIA GPU:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# For CPU fallback:
+torch==2.5.0
+
+# ── State / caching ───────────────────────────────────────────────
+redis==5.0.1
+
+# ── Code quality tools (used by agent sandbox) ────────────────────
+pytest==8.3.0
+bandit==1.7.10
+black==24.10.0
+
+# ── Utilities ─────────────────────────────────────────────────────
+aiohttp==3.11.0
+python-dotenv==1.0.1

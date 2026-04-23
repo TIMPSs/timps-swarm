@@ -1,0 +1,138 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────
+#  TIMPS Swarm — Full 10-Agent Stack
+#  Services: Ollama (LLMs) | Redis (state) | Sandbox | API | UI
+# ─────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Ollama: Open-source LLM backend ──────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: timps-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+      - ./scripts/pull-models.sh:/pull-models.sh:ro
+    # Remove the deploy.resources block on Apple Silicon / CPU-only:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # On Apple Silicon, replace the command with just: ollama serve
+    command: >
+      sh -c "chmod +x /pull-models.sh && /pull-models.sh && ollama serve"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - swarm-net
+
+  # ── Redis: Task queue & shared agent state ────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: timps-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - swarm-net
+
+  # ── Sandbox: Isolated code execution for QA/DevOps agents ─────────
+  sandbox:
+    image: python:3.11-slim
+    container_name: timps-sandbox
+    volumes:
+      - generated-code:/workspace:rw
+    working_dir: /workspace
+    command: >
+      sh -c "pip install pytest bandit --quiet && tail -f /dev/null"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - swarm-net
+
+  # ── Swarm API: Main FastAPI application ───────────────────────────
+  swarm-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.swarm
+    container_name: timps-swarm-api
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - REDIS_URL=redis://redis:6379/0
+      - TIMPS_MODEL_PATH=sandeeprdy1729/TIMPS-Coder-0.5B
+      - ADAPTERS_DIR=/app/adapters
+      - GENERATED_DIR=/app/generated
+      - MAX_PARALLEL_AGENTS=50
+      - LOG_LEVEL=INFO
+      - PORT=8000
+    volumes:
+      - ./src:/app/src:ro
+      - ./adapters:/app/adapters:ro
+      - generated-code:/app/generated:rw
+      - ./data:/app/data:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - swarm-net
+    deploy:
+      resources:
+        limits:
+          memory: 16G
+        reservations:
+          memory: 4G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ── Dashboard: React UI served by nginx ───────────────────────────
+  dashboard:
+    image: nginx:alpine
+    container_name: timps-dashboard
+    ports:
+      - "3000:80"
+    volumes:
+      - ./dashboard/build:/usr/share/nginx/html:ro
+      - ./scripts/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - swarm-api
+    networks:
+      - swarm-net
+
+volumes:
+  ollama-models:
+    driver: local
+  redis-data:
+    driver: local
+  generated-code:
+    driver: local
+
+networks:
+  swarm-net:
+    driver: bridge
