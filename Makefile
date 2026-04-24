@@ -80,7 +80,7 @@ logs:
 # ── Local dev (no Docker) ──────────────────────────────────────────────────
 up-local:
 	@echo ">>> Starting API locally on port $(PORT)..."
-	@DEV=true PORT=$(PORT) python -m src.main
+	@DEV=true PORT=$(PORT) python3 -m src.main
 
 ui:
 	@echo ">>> Starting React dashboard..."
@@ -88,7 +88,7 @@ ui:
 
 # ── Testing ────────────────────────────────────────────────────────────────
 test:
-	@python -m pytest tests/ -v --tb=short 2>/dev/null || echo "No tests found — create tests/ directory"
+	@python3 -m pytest tests/ -v --tb=short 2>/dev/null || echo "No tests found — create tests/ directory"
 
 # ── Quick fire ─────────────────────────────────────────────────────────────
 run:
@@ -97,7 +97,7 @@ ifndef REQ
 endif
 	@curl -s -X POST http://localhost:$(PORT)/swarm/run \
 		-H "Content-Type: application/json" \
-		-d '{"request":"$(REQ)","language":"python","max_iterations":10}' | python -m json.tool
+		-d '{"request":"$(REQ)","language":"python","max_iterations":10}' | python3 -m json.tool
 
 # ── Cleanup ────────────────────────────────────────────────────────────────
 clean:

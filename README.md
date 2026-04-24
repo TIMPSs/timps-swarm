@@ -2,11 +2,29 @@
 
 A production-ready multi-agent coding system built around [TIMPS-Coder](https://github.com/Sandeeprdy1729/timps-coder) — a fine-tuned 0.5B bug-fixing model. 10 specialised AI agents collaborate to handle the full software development lifecycle, while 20 LoRA adapters give TIMPS-Coder deep expertise in specific bug patterns.
 
+**New: Each sub-agent now runs on its own computer with dedicated compute resources!**
+
 ---
 
 ## Architecture
 
 ```
+╔════════════════════════════════════════════════════════════════════════════════════════╗
+║                    TIMPS SWARM 3-LAYER ARCHITECTURE                 ║
+╠════════════════════════════════════════════════════════════════════════════════════════╣
+║                                                                        ║
+║  Layer 3: CLI Commands (swarm control)                                 ║
+║     /swarm spawn <role> /swarm task <request> /swarm status           ║
+║                         │                                           ║
+║  Layer 2: Swarm Bridge (agent orchestration)                        ║
+║     spawn_sub_agent() → run_swarm_task() → orchestrate()             ║
+║                         │                                           ║
+║  Layer 1: Computer Manager (compute allocation)                  ║
+║     Each agent gets: ~/agents/<agent_id>/ with CPU/RAM/disk quotas   ║
+║                         │                                           ║
+║                    timps-swarm LangGraph DAG (10 agents)            ║
+╚════════════════════════════════════════════════════════════════════════════════════════╝
+
 User Request
      │
      ▼
@@ -15,7 +33,28 @@ User Request
 │  (qwen:14b)│◀────│  Code Reviewer → QA Tester → Security Auditor   │
 └────────────┘     │  Performance Optimizer → Docs Writer → DevOps   │
                    └─────────────────────────────────────────────────┘
-                             All coordinated via LangGraph DAG
+                              All coordinated via LangGraph DAG
+```
+
+### Each Sub-Agent Has Its Own Computer
+
+```python
+# Layer 1: Computer Manager
+computer = cm.allocate_computer("code_generator")
+# → Creates: ~/.timps/agents/code_generator-a1b2c3d4/
+# → CPU quota: 40%
+# → Memory: 2048MB
+# → Each agent is isolated!
+
+# Layer 2: Swarm Bridge
+bridge.spawn_sub_agent(AgentRole.CODE_GENERATOR)
+# → Spawns agent with its own computer
+# → Agent writes to its own directory only
+
+# Layer 3: CLI
+timps swarm run "fix this bug"
+# → Whole swarm works on task
+# → Each agent uses its own compute
 ```
 
 ### The 10 Agents
@@ -185,35 +224,90 @@ wscat -c ws://localhost:8000/ws
 
 ---
 
-## Project Structure
+## Python API (New 3-Layer System)
 
+### Layer 1: Computer Manager
+
+```python
+from src.layer1_computer_manager import get_computer_manager, ComputeResources
+
+cm = get_computer_manager()
+
+# Allocate a computer for an agent
+computer = cm.allocate_computer("code_generator")
+# → AgentComputer(agent_id="code_generator-abc123", working_dir="~/.timps/agents/code_generator-abc123/")
+
+# Check system resources
+resources = cm.check_resources()
+# → {cpu_count: 8, memory_available_mb: 16384, ...}
+
+# List all agents
+agents = cm.list_agents()
+# → {total: 5, max: 10, agents: {...}}
+
+# Release an agent
+cm.release_computer(agent_id)
 ```
-timps-swarm/
-├── src/
-│   ├── main.py           # FastAPI app + WebSocket
-│   ├── graph.py          # LangGraph DAG (10-agent workflow)
-│   ├── agents.py         # All 10 agent implementations
-│   ├── state.py          # Shared SwarmState TypedDict
-│   ├── llm_router.py     # Routes agents to correct Ollama model
-│   └── adapter_router.py # Hot-swaps TIMPS-Coder LoRA adapters
-├── dashboard/            # React real-time monitoring dashboard
-│   ├── src/
-│   │   └── SwarmDashboard.js
-│   └── public/index.html
-├── datasets/
-│   ├── custom/           # ← PUT YOUR BUG-FIX DATA HERE (.jsonl)
-│   └── raw/              # Raw bug-fix pairs (auto-normalised)
-├── adapters/             # Trained LoRA adapters (auto-generated)
-├── generated/            # Code artifacts produced by agents
-├── .github/workflows/
-│   └── train-adapters.yml # Auto-train on dataset push
-├── build_clean_dataset.py
-├── fix_fences.py
-├── retrain-specialized.sh
-├── docker-compose.yml
-├── Dockerfile.swarm
-├── Makefile
-└── requirements.txt
+
+### Layer 2: Swarm Bridge
+
+```python
+from src.layer2_swarm_bridge import get_swarm_bridge, AgentRole
+
+bridge = get_swarm_bridge()
+
+# Spawn a sub-agent with its own computer
+agent = await bridge.spawn_sub_agent(AgentRole.CODE_GENERATOR, initial_task="write code")
+# → SubAgent(id="code_generator-xyz", role=AgentRole.CODE_GENERATOR, computer=AgentComputer(...))
+
+# Spawn a team
+agents = await bridge.spawn_agent_team([
+    AgentRole.CODE_GENERATOR,
+    AgentRole.QA_TESTER,
+])
+
+# Run a full swarm task
+task = await bridge.run_swarm_task("Fix the bug in AuthService", language="python")
+# → SwarmTask(id="task-123", status="completed", artifacts=[...])
+
+# Get swarm status
+status = bridge.get_swarm_status()
+```
+
+### Layer 3: CLI
+
+```python
+from src.layer3_swarm_cli import run_swarm_command
+
+# Run a command
+result = await run_swarm_command("spawn code_generator write hello")
+# → SwarmCommand(success=True, message="Spawned code_generator...")
+
+# Available commands:
+# - spawn <role> [task]
+# - task <request>
+# - team <roles>
+# - status
+# - resources
+# - kill <agent_id>
+```
+
+---
+
+## Give Work to Swarm
+
+```bash
+# Give task to whole swarm
+python3 give_work.py "Write a hello world function"
+
+# With specific language
+python3 give_work.py "Create a REST API" -l python
+
+# Spawn specific agents only
+python3 give_work.py --spawn code_generator qa_tester "Write code and test it"
+
+# Spawn single agent
+python3 give_work.py --spawn code_generator "Fix the NullPointerException"
 ```
 
 ---
