@@ -1,0 +1,4 @@
+[console_scripts]
+timps = timps_cli:main
+timps-mcp = mcp_server.server:run_server
+timps-swarm = give_work:main

@@ -91,9 +91,13 @@ def orchestrator_node(state: SwarmState) -> dict:
             "You are the Orchestrator of a software engineering AI swarm. "
             "Break the user's request into a JSON array of tasks. "
             "Each task: {id, description, assigned_to, dependencies, status}. "
-            "assigned_to must be one of: product_manager, architect, code_generator, "
+            "assigned_to must be one of: research_agent, api_design_agent, "
+            "product_manager, architect, code_generator, "
             "code_reviewer, qa_tester, security_auditor, performance_optimizer, "
-            "documentation_writer, devops. "
+            "dependency_agent, documentation_writer, devops. "
+            "ALWAYS start with research_agent (id t0, no deps). "
+            "If building an API, add api_design_agent (id t0b, depends on t0) before product_manager. "
+            "Add dependency_agent after code_generator (depends on code_generator task). "
             "status must be 'pending'. Output ONLY valid JSON — no prose."
         )
         prompt = f"User request: {state['user_request']}\nGenerate the task plan."
@@ -126,15 +130,18 @@ def orchestrator_node(state: SwarmState) -> dict:
 
 def _default_task_dag(request: str) -> list:
     return [
-        {"id": "t1", "description": f"Write requirements for: {request}", "assigned_to": "product_manager", "dependencies": [], "status": "pending"},
-        {"id": "t2", "description": "Design system architecture", "assigned_to": "architect", "dependencies": ["t1"], "status": "pending"},
-        {"id": "t3", "description": f"Implement code for: {request}", "assigned_to": "code_generator", "dependencies": ["t2"], "status": "pending"},
-        {"id": "t4", "description": "Review generated code", "assigned_to": "code_reviewer", "dependencies": ["t3"], "status": "pending"},
-        {"id": "t5", "description": "Write and run tests", "assigned_to": "qa_tester", "dependencies": ["t3"], "status": "pending"},
-        {"id": "t6", "description": "Security audit of code", "assigned_to": "security_auditor", "dependencies": ["t3"], "status": "pending"},
-        {"id": "t7", "description": "Profile and optimise performance", "assigned_to": "performance_optimizer", "dependencies": ["t4"], "status": "pending"},
-        {"id": "t8", "description": "Write README and API docs", "assigned_to": "documentation_writer", "dependencies": ["t4", "t5"], "status": "pending"},
-        {"id": "t9", "description": "Generate Dockerfile and CI/CD", "assigned_to": "devops", "dependencies": ["t5", "t6"], "status": "pending"},
+        {"id": "t0",  "description": f"Research best practices for: {request}", "assigned_to": "research_agent", "dependencies": [], "status": "pending"},
+        {"id": "t1",  "description": f"Write requirements for: {request}", "assigned_to": "product_manager", "dependencies": ["t0"], "status": "pending"},
+        {"id": "t2",  "description": "Design system architecture", "assigned_to": "architect", "dependencies": ["t1"], "status": "pending"},
+        {"id": "t2b", "description": f"Design API spec for: {request}", "assigned_to": "api_design_agent", "dependencies": ["t2"], "status": "pending"},
+        {"id": "t3",  "description": f"Implement code for: {request}", "assigned_to": "code_generator", "dependencies": ["t2b"], "status": "pending"},
+        {"id": "t4",  "description": "Review generated code", "assigned_to": "code_reviewer", "dependencies": ["t3"], "status": "pending"},
+        {"id": "t5",  "description": "Write and run tests", "assigned_to": "qa_tester", "dependencies": ["t3"], "status": "pending"},
+        {"id": "t6",  "description": "Security audit of code", "assigned_to": "security_auditor", "dependencies": ["t3"], "status": "pending"},
+        {"id": "t6b", "description": "Dependency vulnerability scan", "assigned_to": "dependency_agent", "dependencies": ["t3"], "status": "pending"},
+        {"id": "t7",  "description": "Profile and optimise performance", "assigned_to": "performance_optimizer", "dependencies": ["t4"], "status": "pending"},
+        {"id": "t8",  "description": "Write README and API docs", "assigned_to": "documentation_writer", "dependencies": ["t4", "t5"], "status": "pending"},
+        {"id": "t9",  "description": "Generate Dockerfile and CI/CD", "assigned_to": "devops", "dependencies": ["t5", "t6"], "status": "pending"},
     ]
 
 

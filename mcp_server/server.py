@@ -52,6 +52,68 @@ if str(_REPO_ROOT) not in sys.path:
 
 logger = logging.getLogger("timps-mcp")
 
+# ── MCP Sampling state ───────────────────────────────────────────────────────
+# Set once the client connects; lets agents use the caller's LLM instead of Ollama.
+_CLIENT_NAME: str = "unknown"
+_CLIENT_SUPPORTS_SAMPLING: bool = False
+_STDIN_BUF: Optional[Any] = None
+_STDOUT_BUF: Optional[Any] = None
+_SAMPLE_COUNTER: int = 0
+
+
+def _mcp_sample(system: str, user_prompt: str, max_tokens: int = 8192) -> Optional[str]:
+    """Send sampling/createMessage to the MCP client; return response text or None.
+
+    Returns None when:
+    - The client doesn't advertise sampling support
+    - The round-trip fails for any reason
+    The caller (LLMRouter) falls back to local Ollama in those cases.
+    """
+    global _SAMPLE_COUNTER
+    if not _CLIENT_SUPPORTS_SAMPLING or _STDOUT_BUF is None or _STDIN_BUF is None:
+        return None
+
+    _SAMPLE_COUNTER += 1
+    sample_id = f"smpl-{_SAMPLE_COUNTER}"
+
+    request = {
+        "jsonrpc": "2.0",
+        "id": sample_id,
+        "method": "sampling/createMessage",
+        "params": {
+            "messages": [
+                {"role": "user", "content": {"type": "text", "text": user_prompt}}
+            ],
+            "systemPrompt": system or "You are a helpful AI assistant.",
+            "maxTokens": max_tokens,
+            "includeContext": "none",
+        },
+    }
+    try:
+        _STDOUT_BUF.write((json.dumps(request) + "\n").encode())
+        _STDOUT_BUF.flush()
+        # Read back the response; skip notifications (they have no "id")
+        for _ in range(20):
+            raw = _STDIN_BUF.readline()
+            if not raw:
+                return None
+            resp = json.loads(raw.strip())
+            if "id" not in resp:
+                continue  # notification — ignore and keep reading
+            if resp.get("id") != sample_id:
+                continue  # out-of-order — shouldn't happen but be safe
+            if "error" in resp:
+                logger.error("Sampling error from %s: %s", _CLIENT_NAME, resp["error"])
+                return None
+            content = resp.get("result", {}).get("content", {})
+            if isinstance(content, dict):
+                return content.get("text") or ""
+            return str(content)
+    except Exception as exc:
+        logger.error("MCP sampling round-trip failed: %s", exc)
+    return None
+
+
 # ── Lazy imports so the server starts even if heavy deps are missing ──────────
 
 def _import_agents():
@@ -468,6 +530,547 @@ TOOLS: List[Dict[str, Any]] = [
         "description": "Predict disk usage trends, identify cache directories safe to prune, and warn before 'no space left on device' events.",
         "inputSchema": {"type": "object", "properties": {}, "required": []},
     },
+
+    # ── Developer Swarm agents ─────────────────────────────────────────────────
+    {
+        "name": "timps_issue_triager",
+        "description": (
+            "Triage a bug report or GitHub issue: detect duplicates, assign severity "
+            "(critical/high/medium/low), suggest labels and owner. "
+            "Pass the raw issue title and body text."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "request": {"type": "string", "description": "Raw issue title + body text"},
+                "repo_path": {"type": "string", "description": "Optional: local repo for duplicate detection"},
+            },
+            "required": ["request"],
+        },
+    },
+    {
+        "name": "timps_boilerplate_architect",
+        "description": (
+            "Scaffold a new project: folder structure, stub files, setup commands. "
+            "Supports any language or framework — describe what you're building."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "request": {"type": "string", "description": "Project description"},
+                "language": {"type": "string", "description": "Primary language (default: python)", "default": "python"},
+            },
+            "required": ["request"],
+        },
+    },
+    {
+        "name": "timps_pr_reviewer",
+        "description": (
+            "Review a pull request diff for blockers, suggestions, and nitpicks. "
+            "Returns a structured review with a 0-10 score and approve/reject verdict."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "diff": {"type": "string", "description": "The PR diff or description text"},
+                "style_guide": {"type": "string", "description": "Optional: project style guide context"},
+            },
+            "required": ["diff"],
+        },
+    },
+    {
+        "name": "timps_dependency_sentinel",
+        "description": (
+            "Scan a dependency manifest (requirements.txt, package.json, go.mod, Cargo.toml) "
+            "for CVEs and severely outdated packages. Returns a severity-ranked report "
+            "with upgrade commands."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "manifest": {"type": "string", "description": "Full content of the manifest file"},
+                "manifest_type": {"type": "string", "description": "'requirements.txt'|'package.json'|'go.mod'|'auto'", "default": "auto"},
+            },
+            "required": ["manifest"],
+        },
+    },
+    {
+        "name": "timps_unit_test_writer",
+        "description": (
+            "Analyse source code and generate a comprehensive test suite: "
+            "happy paths, edge cases, error conditions. "
+            "Returns a complete test file ready to run."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source_code": {"type": "string", "description": "The function or class source code to test"},
+                "language": {"type": "string", "description": "Programming language", "default": "python"},
+                "framework": {"type": "string", "description": "Test framework (auto-detected if omitted)", "default": "auto"},
+            },
+            "required": ["source_code"],
+        },
+    },
+    {
+        "name": "timps_docstring_generator",
+        "description": (
+            "Read raw source code and insert production-quality docstrings in your "
+            "preferred format (Google, Sphinx, NumPy, JSDoc, Doxygen). "
+            "Logic is never changed — only documentation is added."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source_code": {"type": "string", "description": "Source code to document"},
+                "language": {"type": "string", "description": "Programming language", "default": "python"},
+                "doc_style": {"type": "string", "description": "'google'|'sphinx'|'numpy'|'jsdoc'|'doxygen'", "default": "google"},
+            },
+            "required": ["source_code"],
+        },
+    },
+    {
+        "name": "timps_log_detective",
+        "description": (
+            "Cluster production log errors, identify root cause, and suggest a fix. "
+            "Handles stack traces, JSON logs, syslog, and journald output."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "logs": {"type": "string", "description": "Raw log output (paste or file content)"},
+                "service": {"type": "string", "description": "Service name for context", "default": "app"},
+            },
+            "required": ["logs"],
+        },
+    },
+    {
+        "name": "timps_sql_optimizer",
+        "description": (
+            "Analyse a slow SQL query and return: the optimised rewrite, "
+            "index recommendations with CREATE INDEX SQL, and an estimated speedup. "
+            "Supports PostgreSQL, MySQL, SQLite, MSSQL."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "The slow SQL query"},
+                "explain_output": {"type": "string", "description": "Optional: output of EXPLAIN or EXPLAIN ANALYZE"},
+                "db_engine": {"type": "string", "description": "'postgresql'|'mysql'|'sqlite'|'mssql'", "default": "postgresql"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "timps_sprint_reporter",
+        "description": (
+            "Generate a formatted daily standup report from task lists. "
+            "Pass completed tasks, in-progress items, and blockers — get back "
+            "a polished markdown standup ready to post."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "completed": {"type": "array", "items": {"type": "string"}, "description": "Tasks completed since last standup"},
+                "in_progress": {"type": "array", "items": {"type": "string"}, "description": "Currently in progress"},
+                "blockers": {"type": "array", "items": {"type": "string"}, "description": "Current blockers"},
+                "team_member": {"type": "string", "description": "Name for the standup", "default": "Developer"},
+            },
+            "required": ["completed", "in_progress"],
+        },
+    },
+    {
+        "name": "timps_flaky_test_hunter",
+        "description": (
+            "Find non-deterministic tests from CI run history. "
+            "Returns ranked list of flaky tests, suspected causes, and fix suggestions."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "ci_history": {"type": "string", "description": "CI test run history (paste from CI logs)"},
+                "repo_path": {"type": "string", "description": "Optional: local repo for git context"},
+            },
+            "required": ["ci_history"],
+        },
+    },
+    {
+        "name": "timps_api_contract_auditor",
+        "description": (
+            "Diff two API specs (OpenAPI/AsyncAPI) and flag breaking changes, "
+            "deprecations, and safe additions. Returns a semver recommendation "
+            "and a migration guide for clients."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "old_spec": {"type": "string", "description": "Old API spec (YAML or JSON)"},
+                "new_spec": {"type": "string", "description": "New API spec (YAML or JSON)"},
+                "format": {"type": "string", "description": "'openapi'|'asyncapi'", "default": "openapi"},
+            },
+            "required": ["old_spec", "new_spec"],
+        },
+    },
+    {
+        "name": "timps_content_multiplier",
+        "description": (
+            "Transform a long-form technical post into multiple short-form formats: "
+            "tweet thread, LinkedIn post, changelog entry, docs blurb, and HN title."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content": {"type": "string", "description": "The long-form post or release notes"},
+                "tone": {"type": "string", "description": "'technical'|'casual'|'marketing'", "default": "technical"},
+            },
+            "required": ["content"],
+        },
+    },
+
+    # ── Knowledge Worker agents ───────────────────────────────────────────────
+    {
+        "name": "timps_inbox_gatekeeper",
+        "description": (
+            "Triage a batch of emails: flag urgent ones, draft routine replies, "
+            "identify newsletters to unsubscribe from. "
+            "Pass a list of email objects with 'from', 'subject', 'body'."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "emails": {
+                    "type": "array",
+                    "items": {"type": "object"},
+                    "description": "List of {from, subject, body} email objects",
+                },
+                "context": {"type": "string", "description": "Optional user context (role, priorities)"},
+            },
+            "required": ["emails"],
+        },
+    },
+    {
+        "name": "timps_meeting_condenser",
+        "description": (
+            "Extract action items, decisions, and open questions from a meeting transcript. "
+            "Returns a structured summary with owners and deadlines."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "transcript": {"type": "string", "description": "Raw meeting transcript text"},
+                "attendees": {"type": "array", "items": {"type": "string"}, "description": "Optional: list of attendee names"},
+            },
+            "required": ["transcript"],
+        },
+    },
+    {
+        "name": "timps_research_scout",
+        "description": (
+            "Deep-dive research on any topic. Returns a structured brief: "
+            "key findings, consensus view, controversies, recommended actions, and sources. "
+            "Depth options: quick, medium (default), deep."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string", "description": "Research topic or question"},
+                "depth": {"type": "string", "description": "'quick'|'medium'|'deep'", "default": "medium"},
+            },
+            "required": ["topic"],
+        },
+    },
+    {
+        "name": "timps_trend_monitor",
+        "description": (
+            "Monitor keywords across Hacker News, Reddit, GitHub, and Dev.to for "
+            "spikes in interest. Returns trend direction, sentiment, and a digest summary."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "keywords": {"type": "array", "items": {"type": "string"}, "description": "Keywords to track"},
+                "sources": {"type": "array", "items": {"type": "string"}, "description": "Optional: specific sources to watch"},
+            },
+            "required": ["keywords"],
+        },
+    },
+    {
+        "name": "timps_data_wrangler",
+        "description": (
+            "Clean and normalise messy data: CSV, JSON, PDF extracts, copy-pasted tables. "
+            "Returns cleaned records, a quality score, and SQL insert hint."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "data": {"type": "string", "description": "Raw messy data (paste content)"},
+                "target_schema": {"type": "object", "description": "Optional: {field_name: type} target schema"},
+                "format": {"type": "string", "description": "Input format hint ('csv'|'json'|'text'|'auto')", "default": "auto"},
+            },
+            "required": ["data"],
+        },
+    },
+    {
+        "name": "timps_competitor_tracker",
+        "description": (
+            "Monitor competitors for pricing changes, new features, job postings, "
+            "and public sentiment. Returns a competitive intelligence brief."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "competitors": {"type": "array", "items": {"type": "string"}, "description": "Competitor names or URLs"},
+                "focus_areas": {"type": "array", "items": {"type": "string"}, "description": "Optional: ['pricing','features','hiring','reviews']"},
+            },
+            "required": ["competitors"],
+        },
+    },
+
+    # ── NEW Priority Agents (Phase 3) ─────────────────────────────────────────
+    {
+        "name": "timps_research_agent",
+        "description": (
+            "Research Agent — runs BEFORE any coding task. Searches documentation, "
+            "GitHub issues, Stack Overflow, and the web to gather context so all "
+            "downstream agents have grounded information. "
+            "Returns a structured brief: findings, gotchas, recommended approach, sources."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "topic": {"type": "string", "description": "What to research (e.g. 'FastAPI JWT auth best practices 2024')"},
+                "depth": {"type": "string", "description": "'quick'|'medium'|'deep'", "default": "medium"},
+                "sources": {"type": "array", "items": {"type": "string"}, "description": "Optional: specific sources to search (docs, github, stackoverflow)"},
+            },
+            "required": ["topic"],
+        },
+    },
+    {
+        "name": "timps_api_design_agent",
+        "description": (
+            "API Design Agent — generates a complete OpenAPI 3.1 spec (YAML) "
+            "from a natural-language description. Enforces REST/GraphQL best practices, "
+            "versioning strategy, and consistent naming BEFORE code generation starts. "
+            "Returns the spec + a design rationale document."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "description": {"type": "string", "description": "Plain-English API description, e.g. 'User auth API with JWT, refresh tokens, and role-based access'"},
+                "style": {"type": "string", "description": "'rest'|'graphql'|'grpc'", "default": "rest"},
+                "version": {"type": "string", "description": "API version string", "default": "1.0.0"},
+                "auth_scheme": {"type": "string", "description": "'jwt'|'oauth2'|'api_key'|'none'", "default": "jwt"},
+            },
+            "required": ["description"],
+        },
+    },
+    {
+        "name": "timps_db_agent",
+        "description": (
+            "DB Agent — schema design, query optimisation, and migration scripts. "
+            "Given a description of your data model it produces: "
+            "CREATE TABLE SQL, an ER diagram in Mermaid, index recommendations, "
+            "a migration script (Alembic / Flyway / raw SQL), and query templates. "
+            "Pairs with the sql_injection LoRA for secure query generation."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "description": {"type": "string", "description": "Data model description, e.g. 'Multi-tenant SaaS with users, teams, projects, and tasks'"},
+                "db_engine": {"type": "string", "description": "'postgresql'|'mysql'|'sqlite'|'mongodb'", "default": "postgresql"},
+                "migration_tool": {"type": "string", "description": "'alembic'|'flyway'|'raw_sql'", "default": "alembic"},
+                "existing_schema": {"type": "string", "description": "Optional: existing DDL or schema JSON for ALTER TABLE migrations"},
+            },
+            "required": ["description"],
+        },
+    },
+    {
+        "name": "timps_dependency_agent",
+        "description": (
+            "Dependency Agent — runs pip-audit / npm audit / cargo audit after "
+            "code generation. Produces: a CVE severity report, a license compliance "
+            "check, a version pinning strategy, and a safe upgrade script. "
+            "Security-conscious devs' favourite agent."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "manifest": {"type": "string", "description": "Content of requirements.txt, package.json, Cargo.toml, go.mod, or a directory path"},
+                "ecosystem": {"type": "string", "description": "'python'|'node'|'rust'|'go'|'auto'", "default": "auto"},
+                "fix": {"type": "boolean", "description": "Generate a fix script for vulnerabilities", "default": True},
+            },
+            "required": ["manifest"],
+        },
+    },
+    {
+        "name": "timps_n8n_workflow_agent",
+        "description": (
+            "n8n Workflow Agent — converts a plain-English task description into a "
+            "complete, importable n8n workflow JSON. Knows all n8n core nodes, "
+            "integrations (Slack, Gmail, GitHub, Notion, Airtable, HTTP Request, "
+            "Webhook, Cron, etc.), and expression syntax. "
+            "Returns the workflow JSON + a visual description of every node."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "description": {"type": "string", "description": "Plain-English workflow description, e.g. 'When a GitHub issue is labeled urgent, post it to Slack #dev and create a Notion page'"},
+                "trigger": {"type": "string", "description": "Trigger type hint: 'webhook'|'cron'|'email'|'github'|'manual'|'auto'", "default": "auto"},
+                "integrations": {"type": "array", "items": {"type": "string"}, "description": "Optional: list of services to include (slack, gmail, github, notion, airtable, etc.)"},
+            },
+            "required": ["description"],
+        },
+    },
+    # ── More agents (v2.1) ────────────────────────────────────────────────────
+    {
+        "name": "timps_refactoring_agent",
+        "description": "Detect code smells and produce a fully refactored version with a diff summary, complexity scores, and improvement list.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "code":     {"type": "string", "description": "Source code to refactor"},
+                "language": {"type": "string", "description": "Programming language", "default": "python"},
+                "goals":    {"type": "array", "items": {"type": "string"},
+                             "description": "Refactoring goals e.g. ['reduce_complexity', 'extract_functions']"},
+            },
+            "required": ["code"],
+        },
+    },
+    {
+        "name": "timps_test_data_agent",
+        "description": "Generate realistic, edge-case-covering seed / fixture data for any JSON schema, SQL DDL, or plain-text description.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "schema": {"type": "string", "description": "JSON schema, SQL DDL, or description"},
+                "count":  {"type": "integer", "description": "Number of records (default 20)"},
+                "format": {"type": "string", "enum": ["json", "csv", "sql", "yaml", "python_dict"], "default": "json"},
+                "locale": {"type": "string", "description": "Locale e.g. en_US, de_DE, ja_JP", "default": "en_US"},
+            },
+            "required": ["schema"],
+        },
+    },
+    {
+        "name": "timps_monitoring_agent",
+        "description": "Generate Prometheus metric definitions, Grafana dashboard JSON, alerting rules, and instrumentation code snippets.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "service_description": {"type": "string"},
+                "language":            {"type": "string", "default": "python"},
+                "slos":                {"type": "array", "items": {"type": "string"},
+                                        "description": "e.g. ['p99 < 200ms', 'error_rate < 0.1%']"},
+                "alerting_platform":   {"type": "string", "enum": ["alertmanager", "pagerduty", "opsgenie"], "default": "alertmanager"},
+            },
+            "required": ["service_description"],
+        },
+    },
+    {
+        "name": "timps_ui_ux_agent",
+        "description": "Generate a UI component spec, implementation code, Storybook story, design tokens, and WCAG accessibility audit.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "description":          {"type": "string"},
+                "framework":            {"type": "string", "enum": ["react", "vue", "svelte", "html"], "default": "react"},
+                "design_system":        {"type": "string", "enum": ["tailwind", "material", "chakra", "custom"], "default": "tailwind"},
+                "accessibility_level":  {"type": "string", "enum": ["AA", "AAA"], "default": "AA"},
+            },
+            "required": ["description"],
+        },
+    },
+    {
+        "name": "timps_i18n_agent",
+        "description": "Extract translatable strings from source code, generate translation JSON files for multiple locales, and flag RTL/cultural issues.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "code":            {"type": "string", "description": "Source code to scan"},
+                "source_locale":   {"type": "string", "default": "en"},
+                "target_locales":  {"type": "array", "items": {"type": "string"},
+                                    "description": "e.g. ['fr', 'de', 'ja', 'ar']"},
+                "i18n_framework":  {"type": "string", "default": "auto"},
+            },
+            "required": ["code"],
+        },
+    },
+    {
+        "name": "timps_cost_optimizer",
+        "description": "Estimate monthly/annual cloud cost for an architecture and generate a prioritised list of savings optimisations.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "architecture":      {"type": "string"},
+                "provider":          {"type": "string", "enum": ["aws", "gcp", "azure", "multi"], "default": "aws"},
+                "monthly_requests":  {"type": "integer", "default": 1000000},
+                "regions":           {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["architecture"],
+        },
+    },
+    {
+        "name": "timps_self_critic_agent",
+        "description": (
+            "Score any agent's output on a 1–10 quality scale, identify weaknesses, and automatically "
+            "re-run the originating agent with an improved prompt until the score meets the threshold. "
+            "This closes the quality feedback loop across the entire swarm."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content":      {"type": "string", "description": "The output to critique"},
+                "agent":        {"type": "string", "description": "Which agent produced it"},
+                "task":         {"type": "string", "description": "The original task/requirement"},
+                "threshold":    {"type": "integer", "description": "Re-run if score < threshold (default 7)"},
+                "max_retries":  {"type": "integer", "description": "Max re-run attempts (default 2)"},
+            },
+            "required": ["content", "agent", "task"],
+        },
+    },
+
+    # ── Provider status ────────────────────────────────────────────────────────
+    {
+        "name": "timps_list_providers",
+        "description": (
+            "Show all configured LLM providers and which one is currently active. "
+            "Useful for debugging which model is handling agent calls."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+
+    # ── Tool connector ─────────────────────────────────────────────────────────
+    {
+        "name": "timps_connect_tools",
+        "description": (
+            "Auto-configure TIMPS Swarm as an MCP server in every AI coding tool "
+            "installed on this machine (Cursor, Windsurf, GitHub Copilot, Cline, "
+            "Continue, Aider, Goose, OpenCode, Gemini CLI, and more). "
+            "Use --dry-run to preview what would change."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "tool_id": {"type": "string", "description": "Specific tool to configure, or 'all' (default: all detected)"},
+                "dry_run": {"type": "boolean", "description": "Preview only — don't write any files", "default": False},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "timps_tool_status",
+        "description": (
+            "Show which AI coding tools are installed and which ones are already "
+            "connected to the TIMPS Swarm MCP server."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -680,6 +1283,170 @@ def _handle_expert_agent(agent_name: str, args: Dict) -> str:
     return _format_result(result)
 
 
+def _handle_dev_agent(agent_name: str, args: Dict) -> str:
+    """Dispatch to developer_swarm_agents functions."""
+    from src.developer_swarm_agents import DEVELOPER_AGENTS
+    fn = DEVELOPER_AGENTS[agent_name]
+    # Map MCP argument names to function signatures
+    arg_map = {
+        "issue_triager":        lambda a: fn(a.get("request", ""), a.get("repo_path")),
+        "boilerplate_architect": lambda a: fn(a.get("request", ""), a.get("language", "python")),
+        "pr_reviewer":          lambda a: fn(a.get("diff", ""), a.get("style_guide", "")),
+        "dependency_sentinel":  lambda a: fn(a.get("manifest", ""), a.get("manifest_type", "auto")),
+        "unit_test_writer":     lambda a: fn(a.get("source_code", ""), a.get("language", "python"), a.get("framework", "auto")),
+        "docstring_generator":  lambda a: fn(a.get("source_code", ""), a.get("language", "python"), a.get("doc_style", "google")),
+        "log_detective":        lambda a: fn(a.get("logs", ""), a.get("service", "app")),
+        "sql_optimizer":        lambda a: fn(a.get("query", ""), a.get("explain_output", ""), a.get("db_engine", "postgresql")),
+        "sprint_reporter":      lambda a: fn(a.get("completed", []), a.get("in_progress", []), a.get("blockers", []), a.get("team_member", "Developer")),
+        "flaky_test_hunter":    lambda a: fn(a.get("ci_history", ""), a.get("repo_path")),
+        "api_contract_auditor": lambda a: fn(a.get("old_spec", ""), a.get("new_spec", ""), a.get("format", "openapi")),
+        "content_multiplier":   lambda a: fn(a.get("content", ""), a.get("tone", "technical")),
+    }
+    result = arg_map[agent_name](args)
+    # Format the result dict as readable markdown
+    if isinstance(result, dict):
+        lines = [f"# TIMPS {agent_name.replace('_', ' ').title()}\n"]
+        for k, v in result.items():
+            if k.startswith("_"):
+                continue
+            if isinstance(v, (list, dict)):
+                lines.append(f"**{k}:**\n```json\n{json.dumps(v, indent=2)}\n```\n")
+            else:
+                lines.append(f"**{k}:** {v}\n")
+        return "\n".join(lines)
+    return str(result)
+
+
+def _handle_knowledge_agent(agent_name: str, args: Dict) -> str:
+    """Dispatch to knowledge_swarm_agents functions."""
+    from src.knowledge_swarm_agents import KNOWLEDGE_AGENTS
+    fn = KNOWLEDGE_AGENTS[agent_name]
+    arg_map = {
+        "inbox_gatekeeper":  lambda a: fn(a.get("emails", []), a.get("context", "")),
+        "meeting_condenser": lambda a: fn(a.get("transcript", ""), a.get("attendees")),
+        "research_scout":    lambda a: fn(a.get("topic", ""), a.get("depth", "medium")),
+        "trend_monitor":     lambda a: fn(a.get("keywords", []), a.get("sources")),
+        "data_wrangler":     lambda a: fn(a.get("data", ""), None, a.get("format", "auto")),
+        "competitor_tracker": lambda a: fn(a.get("competitors", []), a.get("focus_areas")),
+    }
+    result = arg_map[agent_name](args)
+    if isinstance(result, dict):
+        lines = [f"# TIMPS {agent_name.replace('_', ' ').title()}\n"]
+        for k, v in result.items():
+            if k.startswith("_"):
+                continue
+            if isinstance(v, (list, dict)):
+                lines.append(f"**{k}:**\n```json\n{json.dumps(v, indent=2)}\n```\n")
+            else:
+                lines.append(f"**{k}:** {v}\n")
+        return "\n".join(lines)
+    return str(result)
+
+
+def _handle_connect_tools(args: Dict) -> str:
+    from src.tool_connectors import connect_tool, connect_all, TOOLS as TC_TOOLS
+    tool_id = args.get("tool_id", "all")
+    dry_run = bool(args.get("dry_run", False))
+
+    if tool_id and tool_id != "all":
+        results = [connect_tool(tool_id, dry_run=dry_run)]
+    else:
+        results = connect_all(dry_run=dry_run, installed_only=True)
+
+    lines = ["# TIMPS Tool Connector\n"]
+    for r in results:
+        icon = {"ok": "✅", "skipped": "⏭️", "error": "❌", "dry_run": "👀"}.get(r.get("status", ""), "?")
+        lines.append(f"{icon} **{r.get('tool', r.get('id', '?'))}** — {r.get('message', '')}")
+        if r.get("config_path"):
+            lines.append(f"   Config: `{r['config_path']}`")
+
+    if not results:
+        lines.append("No installed tools detected. Install a tool and run again, or pass a specific `tool_id`.")
+
+    return "\n".join(lines)
+
+
+def _handle_tool_status(args: Dict) -> str:
+    from src.tool_connectors import status_report
+    report = status_report()
+    lines = ["# TIMPS — Connected AI Coding Tools\n"]
+
+    if report["connected"]:
+        lines.append(f"## ✅ Connected ({len(report['connected'])})")
+        for t in report["connected"]:
+            lines.append(f"- {t['icon']} **{t['name']}**")
+
+    if report["detected_not_configured"]:
+        lines.append(f"\n## ⚠️ Detected but not configured ({len(report['detected_not_configured'])})")
+        for t in report["detected_not_configured"]:
+            lines.append(f"- {t['icon']} **{t['name']}** → use `timps_connect_tools` with `tool_id: {t['id']}`")
+
+    if report["cloud_tools"]:
+        lines.append(f"\n## ☁️ Cloud tools (manual setup)")
+        for t in report["cloud_tools"]:
+            lines.append(f"- **{t['name']}** → [{t['docs']}]({t['docs']})")
+
+    lines.append(f"\n_Not installed: {len(report['not_installed'])} tools_")
+    return "\n".join(lines)
+
+
+def _handle_priority_agent(agent_name: str, args: Dict) -> str:
+    """Dispatch to priority_agents functions (Phase 3 new agents)."""
+    from src.priority_agents import PRIORITY_AGENTS
+    fn = PRIORITY_AGENTS[agent_name]
+    result = fn(args)
+    if isinstance(result, dict):
+        lines = [f"# TIMPS {agent_name.replace('_', ' ').title()}\n"]
+        for k, v in result.items():
+            if k.startswith("_"):
+                continue
+            if isinstance(v, (list, dict)):
+                lines.append(f"**{k}:**\n```json\n{json.dumps(v, indent=2)}\n```\n")
+            else:
+                lines.append(f"**{k}:** {v}\n")
+        return "\n".join(lines)
+    return str(result)
+
+
+def _handle_more_agent(agent_name: str, args: Dict) -> str:
+    """Dispatch to more_agents functions (Phase 5 new agents)."""
+    from src.more_agents import MORE_AGENTS
+    fn = MORE_AGENTS[agent_name]
+    result = fn(args)
+    if isinstance(result, dict):
+        lines = [f"# TIMPS {agent_name.replace('_', ' ').title()}\n"]
+        for k, v in result.items():
+            if k.startswith("_"):
+                continue
+            if isinstance(v, (list, dict)):
+                try:
+                    lines.append(f"**{k}:**\n```json\n{json.dumps(v, indent=2)}\n```\n")
+                except TypeError:
+                    lines.append(f"**{k}:** {str(v)[:500]}\n")
+            elif isinstance(v, str) and len(v) > 500:
+                lines.append(f"**{k}:**\n```\n{v[:2000]}\n```\n")
+            else:
+                lines.append(f"**{k}:** {v}\n")
+        return "\n".join(lines)
+    return str(result)
+
+
+def _handle_list_providers(_args: Dict) -> str:
+    from src.providers import list_providers
+    providers = list_providers()
+    lines = ["# TIMPS — LLM Provider Status\n"]
+    for p in providers:
+        icon = "✅" if p["available"] else "⬜"
+        active = " **(ACTIVE)**" if p == next((x for x in providers if x["available"]), None) else ""
+        lines.append(f"{icon} **{p['name']}** — `{p['model']}`{active}")
+        lines.append(f"   {p['description']}")
+    lines.append(
+        "\nTo switch providers, set the relevant env var: "
+        "`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`"
+    )
+    return "\n".join(lines)
+
+
 # Map tool name → handler
 _TOOL_HANDLERS: Dict[str, Any] = {
     "timps_list_agents":        lambda a: _handle_list_agents(a),
@@ -714,6 +1481,45 @@ _TOOL_HANDLERS: Dict[str, Any] = {
     "timps_terraform_plan_reviewer":  lambda a: _handle_expert_agent("terraform_plan_reviewer", a),
     "timps_dotfile_doctor":           lambda a: _handle_expert_agent("dotfile_doctor", a),
     "timps_disk_space_prophet":       lambda a: _handle_expert_agent("disk_space_prophet", a),
+    # Developer Swarm agents
+    "timps_issue_triager":        lambda a: _handle_dev_agent("issue_triager", a),
+    "timps_boilerplate_architect": lambda a: _handle_dev_agent("boilerplate_architect", a),
+    "timps_pr_reviewer":          lambda a: _handle_dev_agent("pr_reviewer", a),
+    "timps_dependency_sentinel":  lambda a: _handle_dev_agent("dependency_sentinel", a),
+    "timps_unit_test_writer":     lambda a: _handle_dev_agent("unit_test_writer", a),
+    "timps_docstring_generator":  lambda a: _handle_dev_agent("docstring_generator", a),
+    "timps_log_detective":        lambda a: _handle_dev_agent("log_detective", a),
+    "timps_sql_optimizer":        lambda a: _handle_dev_agent("sql_optimizer", a),
+    "timps_sprint_reporter":      lambda a: _handle_dev_agent("sprint_reporter", a),
+    "timps_flaky_test_hunter":    lambda a: _handle_dev_agent("flaky_test_hunter", a),
+    "timps_api_contract_auditor": lambda a: _handle_dev_agent("api_contract_auditor", a),
+    "timps_content_multiplier":   lambda a: _handle_dev_agent("content_multiplier", a),
+    # Knowledge Worker agents
+    "timps_inbox_gatekeeper":    lambda a: _handle_knowledge_agent("inbox_gatekeeper", a),
+    "timps_meeting_condenser":   lambda a: _handle_knowledge_agent("meeting_condenser", a),
+    "timps_research_scout":      lambda a: _handle_knowledge_agent("research_scout", a),
+    "timps_trend_monitor":       lambda a: _handle_knowledge_agent("trend_monitor", a),
+    "timps_data_wrangler":       lambda a: _handle_knowledge_agent("data_wrangler", a),
+    "timps_competitor_tracker":  lambda a: _handle_knowledge_agent("competitor_tracker", a),
+    # NEW priority agents (Phase 3)
+    "timps_research_agent":      lambda a: _handle_priority_agent("research_agent", a),
+    "timps_api_design_agent":    lambda a: _handle_priority_agent("api_design_agent", a),
+    "timps_db_agent":            lambda a: _handle_priority_agent("db_agent", a),
+    "timps_dependency_agent":    lambda a: _handle_priority_agent("dependency_agent", a),
+    "timps_n8n_workflow_agent":  lambda a: _handle_priority_agent("n8n_workflow_agent", a),
+    # NEW more agents (Phase 5)
+    "timps_refactoring_agent":   lambda a: _handle_more_agent("refactoring_agent", a),
+    "timps_test_data_agent":     lambda a: _handle_more_agent("test_data_agent", a),
+    "timps_monitoring_agent":    lambda a: _handle_more_agent("monitoring_agent", a),
+    "timps_ui_ux_agent":         lambda a: _handle_more_agent("ui_ux_agent", a),
+    "timps_i18n_agent":          lambda a: _handle_more_agent("i18n_agent", a),
+    "timps_cost_optimizer":      lambda a: _handle_more_agent("cost_optimizer", a),
+    "timps_self_critic_agent":   lambda a: _handle_more_agent("self_critic_agent", a),
+    # Provider status
+    "timps_list_providers":      lambda a: _handle_list_providers(a),
+    # Tool connector
+    "timps_connect_tools":       lambda a: _handle_connect_tools(a),
+    "timps_tool_status":         lambda a: _handle_tool_status(a),
 }
 
 
@@ -737,15 +1543,43 @@ def _handle_request(msg: Dict) -> Optional[str]:
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
     if method == "initialize":
+        global _CLIENT_NAME, _CLIENT_SUPPORTS_SAMPLING
+        client_info = params.get("clientInfo") or {}
+        _CLIENT_NAME = client_info.get("name", "unknown")
+        client_caps = params.get("capabilities") or {}
+        _CLIENT_SUPPORTS_SAMPLING = "sampling" in client_caps
+        # Debug: dump full initialize params so we can inspect capabilities
+        import pathlib, datetime
+        _dbg = pathlib.Path("/tmp/timps-mcp-debug.json")
+        _dbg.write_text(json.dumps({
+            "ts": datetime.datetime.now().isoformat(),
+            "client": _CLIENT_NAME,
+            "caps": client_caps,
+            "sampling_detected": _CLIENT_SUPPORTS_SAMPLING,
+            "full_params": params,
+        }, indent=2))
+        logger.warning(
+            "Client connected: %s | capabilities: %s | sampling=%s",
+            _CLIENT_NAME, list(client_caps.keys()), _CLIENT_SUPPORTS_SAMPLING
+        )
+        # Register the sampler so LLMRouter uses it for all subsequent calls
+        try:
+            from src.llm_router import set_mcp_sampler
+            set_mcp_sampler(_mcp_sample)
+        except Exception:
+            pass
         return _make_response(id_, {
             "protocolVersion": "2024-11-05",
-            "capabilities": {"tools": {"listChanged": False}},
+            "capabilities": {
+                "tools": {"listChanged": False},
+                "sampling": {},   # server may send sampling/createMessage
+            },
             "serverInfo": {
                 "name": "timps-swarm",
-                "version": "1.0.0",
+                "version": "2.0.0",
                 "description": (
-                    "TIMPS Swarm: 22 AI agents for software development (SDLC) "
-                    "and computer health (slow laptop, broken envs, WiFi, battery, …)"
+                    "TIMPS Swarm: 51 AI agents — SDLC, computer health, developer "
+                    "workflow, and knowledge worker tools."
                 ),
             },
         })
@@ -812,6 +1646,11 @@ def run_server():
     # Use binary mode + manual newline split for cross-platform reliability
     stdin  = sys.stdin.buffer
     stdout = sys.stdout.buffer
+
+    # Expose the I/O handles so _mcp_sample() can use them
+    global _STDIN_BUF, _STDOUT_BUF
+    _STDIN_BUF  = stdin
+    _STDOUT_BUF = stdout
 
     while True:
         try:

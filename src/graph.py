@@ -1,11 +1,10 @@
 """
-LangGraph workflow — wires all 10 agents into a conditional DAG.
+LangGraph workflow — wires all agents into a conditional DAG.
 
 Flow:
-  orchestrator → [product_manager | architect | code_generator | ...]
-               ↑_______________________________________________|
-
-  documentation_writer → END
+  orchestrator → [research_agent →] [api_design_agent →]
+               → [product_manager | architect | code_generator | ...]
+               → [dependency_agent →] documentation_writer → END
 """
 import logging
 
@@ -28,6 +27,78 @@ from src.agents import (
 logger = logging.getLogger(__name__)
 
 
+# ── New agent node wrappers ───────────────────────────────────────────────────
+# These wrap priority_agents.py functions as LangGraph-compatible nodes.
+
+def _research_agent_node(state: SwarmState) -> dict:
+    from src.priority_agents import research_agent
+    pending = [t for t in state.get("tasks", [])
+               if t["assigned_to"] == "research_agent" and t["status"] == "pending"]
+    if not pending:
+        return {}
+    task = pending[0]
+    result = research_agent({"topic": state["user_request"], "depth": "medium"})
+    from datetime import datetime
+    updated = dict(task)
+    updated.update({"status": "completed", "output": result.get("summary", ""),
+                    "completed_at": datetime.utcnow().isoformat()})
+    return {
+        "tasks": [updated],
+        "code_artifacts": [result.get("report_path", "")],
+        # Inject research brief into requirements field so downstream agents see it
+        "requirements": (state.get("requirements") or "") + "\n\n## Research Brief\n" + result.get("summary", ""),
+    }
+
+
+def _api_design_node(state: SwarmState) -> dict:
+    from src.priority_agents import api_design_agent
+    pending = [t for t in state.get("tasks", [])
+               if t["assigned_to"] == "api_design_agent" and t["status"] == "pending"]
+    if not pending:
+        return {}
+    task = pending[0]
+    result = api_design_agent({"description": state["user_request"]})
+    from datetime import datetime
+    updated = dict(task)
+    updated.update({"status": "completed", "output": result.get("spec_yaml", ""),
+                    "artifact_path": result.get("spec_path", ""),
+                    "completed_at": datetime.utcnow().isoformat()})
+    return {
+        "tasks": [updated],
+        "code_artifacts": [result.get("spec_path", "")],
+        "architecture_plan": (state.get("architecture_plan") or "") + "\n\n## API Spec\n" + result.get("spec_yaml", "")[:2000],
+    }
+
+
+def _dependency_agent_node(state: SwarmState) -> dict:
+    from src.priority_agents import dependency_agent
+    pending = [t for t in state.get("tasks", [])
+               if t["assigned_to"] == "dependency_agent" and t["status"] == "pending"]
+    if not pending:
+        return {}
+    task = pending[0]
+    # Try to read requirements.txt from generated artifacts
+    manifest = ""
+    for path in state.get("code_artifacts", []):
+        if "requirements" in str(path) or "package.json" in str(path):
+            try:
+                import os
+                manifest = open(path).read()
+                break
+            except Exception:
+                pass
+    result = dependency_agent({"manifest": manifest or "# No manifest found", "ecosystem": "auto"})
+    from datetime import datetime
+    updated = dict(task)
+    updated.update({"status": "completed", "output": result.get("summary", ""),
+                    "completed_at": datetime.utcnow().isoformat()})
+    return {
+        "tasks": [updated],
+        "security_report": (state.get("security_report") or "") + "\n\n## Dependency Audit\n" + result.get("summary", ""),
+        "code_artifacts": [result.get("report_path", "")],
+    }
+
+
 # ── Routing logic ─────────────────────────────────────────────────────────────
 
 def route_after_orchestrator(state: SwarmState) -> str:
@@ -41,9 +112,15 @@ def route_after_orchestrator(state: SwarmState) -> str:
 
     tasks = state.get("tasks", [])
     pending = {t["assigned_to"] for t in tasks if t["status"] == "pending"}
-    failed  = {t["assigned_to"] for t in tasks if t["status"] == "failed"}
 
-    # Follow dependency order
+    # NEW: research before everything else
+    if "research_agent" in pending:
+        return "research_agent"
+
+    # NEW: API design before coding
+    if "api_design_agent" in pending and not state.get("architecture_plan"):
+        return "api_design_agent"
+
     if not state.get("requirements") and "product_manager" in pending:
         return "product_manager"
 
@@ -62,6 +139,10 @@ def route_after_orchestrator(state: SwarmState) -> str:
     if "security_auditor" in pending and state.get("code_artifacts"):
         return "security_auditor"
 
+    # NEW: dependency audit after security
+    if "dependency_agent" in pending and state.get("code_artifacts"):
+        return "dependency_agent"
+
     # Loop back for critical findings
     sec_report = state.get("security_report", "")
     review_comments = " ".join(state.get("review_comments", []))
@@ -78,7 +159,6 @@ def route_after_orchestrator(state: SwarmState) -> str:
     if "devops" in pending:
         return "devops"
 
-    # All done
     return "documentation_writer"
 
 
@@ -87,7 +167,7 @@ def route_after_orchestrator(state: SwarmState) -> str:
 def build_graph() -> StateGraph:
     workflow = StateGraph(SwarmState)
 
-    # Register all 10 agent nodes
+    # Core 10 SDLC agents
     workflow.add_node("orchestrator",           orchestrator_node)
     workflow.add_node("product_manager",        product_manager_node)
     workflow.add_node("architect",              architect_node)
@@ -99,6 +179,11 @@ def build_graph() -> StateGraph:
     workflow.add_node("documentation_writer",   documentation_writer_node)
     workflow.add_node("devops",                 devops_node)
 
+    # NEW priority agents
+    workflow.add_node("research_agent",         _research_agent_node)
+    workflow.add_node("api_design_agent",       _api_design_node)
+    workflow.add_node("dependency_agent",       _dependency_agent_node)
+
     # Entry point
     workflow.set_entry_point("orchestrator")
 
@@ -107,12 +192,15 @@ def build_graph() -> StateGraph:
         "orchestrator",
         route_after_orchestrator,
         {
+            "research_agent":        "research_agent",
+            "api_design_agent":      "api_design_agent",
             "product_manager":       "product_manager",
             "architect":             "architect",
             "code_generator":        "code_generator",
             "code_reviewer":         "code_reviewer",
             "qa_tester":             "qa_tester",
             "security_auditor":      "security_auditor",
+            "dependency_agent":      "dependency_agent",
             "performance_optimizer": "performance_optimizer",
             "documentation_writer":  "documentation_writer",
             "devops":                "devops",
@@ -121,12 +209,15 @@ def build_graph() -> StateGraph:
 
     # All non-terminal agents loop back to orchestrator
     for node in [
+        "research_agent",
+        "api_design_agent",
         "product_manager",
         "architect",
         "code_generator",
         "code_reviewer",
         "qa_tester",
         "security_auditor",
+        "dependency_agent",
         "performance_optimizer",
         "devops",
     ]:

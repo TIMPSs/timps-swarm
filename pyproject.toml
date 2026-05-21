@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=70", "wheel"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "timps-swarm-mcp"
@@ -42,6 +42,7 @@ ml  = ["transformers>=4.46.0", "peft>=0.13.2", "huggingface-hub>=0.26.0"]
 [project.scripts]
 # CLI entry points — installed by `pip install timps-swarm-mcp`
 timps-mcp   = "mcp_server.server:run_server"
+timps       = "timps_cli:main"
 timps-swarm = "give_work:main"
 
 [project.urls]
@@ -55,6 +56,8 @@ include = ["src*", "mcp_server*"]
 
 [tool.setuptools.package-data]
 "mcp_server" = ["*.json", "*.md"]
+
+# timps_cli.py is a top-level module — included automatically by setuptools
 
 [tool.ruff]
 line-length = 100

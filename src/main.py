@@ -376,6 +376,311 @@ async def websocket_endpoint(websocket: WebSocket):
             _active_websockets.remove(websocket)
 
 
+# ── Priority Agent Endpoints (used by CLI) ─────────────────────────────────
+
+class ResearchRequest(BaseModel):
+    topic: str
+    depth: Optional[str] = "medium"
+
+
+class APIDesignRequest(BaseModel):
+    description: str
+    style: Optional[str] = "rest"
+    auth_scheme: Optional[str] = "jwt"
+
+
+class DBDesignRequest(BaseModel):
+    description: str
+    db_engine: Optional[str] = "postgresql"
+    migration_tool: Optional[str] = "alembic"
+
+
+class DependencyAuditRequest(BaseModel):
+    manifest: str
+    ecosystem: Optional[str] = "auto"
+
+
+class N8nWorkflowRequest(BaseModel):
+    description: str
+    trigger: Optional[str] = "auto"
+
+
+@app.post("/agents/research")
+async def agent_research(req: ResearchRequest):
+    from src.priority_agents import research_agent
+    return research_agent({"topic": req.topic, "depth": req.depth})
+
+
+@app.post("/agents/api-design")
+async def agent_api_design(req: APIDesignRequest):
+    from src.priority_agents import api_design_agent
+    return api_design_agent({
+        "description": req.description,
+        "style": req.style,
+        "auth_scheme": req.auth_scheme,
+    })
+
+
+@app.post("/agents/db-design")
+async def agent_db_design(req: DBDesignRequest):
+    from src.priority_agents import db_agent
+    return db_agent({
+        "description": req.description,
+        "db_engine": req.db_engine,
+        "migration_tool": req.migration_tool,
+    })
+
+
+@app.post("/agents/dependency-audit")
+async def agent_dependency_audit(req: DependencyAuditRequest):
+    from src.priority_agents import dependency_agent
+    return dependency_agent({"manifest": req.manifest, "ecosystem": req.ecosystem})
+
+
+@app.post("/agents/n8n-workflow")
+async def agent_n8n_workflow(req: N8nWorkflowRequest):
+    from src.priority_agents import n8n_workflow_agent
+    return n8n_workflow_agent({"description": req.description, "trigger": req.trigger})
+
+
+# ── More Agent Endpoints (Phase 5) ─────────────────────────────────────────
+
+class RefactoringRequest(BaseModel):
+    code: str
+    language: Optional[str] = "python"
+    goals: Optional[list] = None
+
+
+class TestDataRequest(BaseModel):
+    schema: str
+    count: Optional[int] = 20
+    format: Optional[str] = "json"
+    locale: Optional[str] = "en_US"
+
+
+class MonitoringRequest(BaseModel):
+    service_description: str
+    language: Optional[str] = "python"
+    slos: Optional[list] = None
+    alerting_platform: Optional[str] = "alertmanager"
+
+
+class UIUXRequest(BaseModel):
+    description: str
+    framework: Optional[str] = "react"
+    design_system: Optional[str] = "tailwind"
+    accessibility_level: Optional[str] = "AA"
+
+
+class I18nRequest(BaseModel):
+    code: str
+    source_locale: Optional[str] = "en"
+    target_locales: Optional[list] = None
+    i18n_framework: Optional[str] = "auto"
+
+
+class CostOptimizerRequest(BaseModel):
+    architecture: str
+    provider: Optional[str] = "aws"
+    monthly_requests: Optional[int] = 1_000_000
+    regions: Optional[list] = None
+
+
+class SelfCriticRequest(BaseModel):
+    content: str
+    agent: str
+    task: str
+    threshold: Optional[int] = 7
+    max_retries: Optional[int] = 2
+
+
+@app.post("/agents/refactor")
+async def agent_refactor(req: RefactoringRequest):
+    from src.more_agents import refactoring_agent
+    return refactoring_agent({"code": req.code, "language": req.language, "goals": req.goals})
+
+
+@app.post("/agents/test-data")
+async def agent_test_data(req: TestDataRequest):
+    from src.more_agents import test_data_agent
+    return test_data_agent({"schema": req.schema, "count": req.count,
+                            "format": req.format, "locale": req.locale})
+
+
+@app.post("/agents/monitoring")
+async def agent_monitoring(req: MonitoringRequest):
+    from src.more_agents import monitoring_agent
+    return monitoring_agent({"service_description": req.service_description,
+                             "language": req.language, "slos": req.slos,
+                             "alerting_platform": req.alerting_platform})
+
+
+@app.post("/agents/ui-ux")
+async def agent_ui_ux(req: UIUXRequest):
+    from src.more_agents import ui_ux_agent
+    return ui_ux_agent({"description": req.description, "framework": req.framework,
+                        "design_system": req.design_system,
+                        "accessibility_level": req.accessibility_level})
+
+
+@app.post("/agents/i18n")
+async def agent_i18n(req: I18nRequest):
+    from src.more_agents import i18n_agent
+    return i18n_agent({"code": req.code, "source_locale": req.source_locale,
+                       "target_locales": req.target_locales, "i18n_framework": req.i18n_framework})
+
+
+@app.post("/agents/cost-optimizer")
+async def agent_cost_optimizer(req: CostOptimizerRequest):
+    from src.more_agents import cost_optimizer
+    return cost_optimizer({"architecture": req.architecture, "provider": req.provider,
+                           "monthly_requests": req.monthly_requests, "regions": req.regions})
+
+
+@app.post("/agents/self-critic")
+async def agent_self_critic(req: SelfCriticRequest):
+    from src.more_agents import self_critic_agent
+    return self_critic_agent({"content": req.content, "agent": req.agent, "task": req.task,
+                              "threshold": req.threshold, "max_retries": req.max_retries})
+
+
+@app.get("/providers")
+async def list_all_providers():
+    from src.providers import list_providers, registry
+    providers_info = []
+    for name in ["mcp", "gemini", "anthropic", "openai", "groq", "ollama", "timps"]:
+        try:
+            prov = registry._instances.get(name)
+            if prov is None:
+                from src.providers import _PROVIDER_CLASSES  # noqa: F401
+                from src.providers import (
+                    MCPSamplerProvider, GeminiProvider, AnthropicProvider,
+                    OpenAIProvider, GroqProvider, OllamaProvider, TIMPSProvider,
+                )
+                classes = {
+                    "mcp": MCPSamplerProvider, "gemini": GeminiProvider,
+                    "anthropic": AnthropicProvider, "openai": OpenAIProvider,
+                    "groq": GroqProvider, "ollama": OllamaProvider, "timps": TIMPSProvider,
+                }
+                prov = classes[name]()
+            available = prov.is_available()
+            description = {
+                "mcp": "MCP sampler (when inside Claude Code)",
+                "gemini": "Google Gemini 2.5 Flash",
+                "anthropic": "Anthropic Claude",
+                "openai": "OpenAI GPT",
+                "groq": "Groq fast-inference (Llama 3.3 70B)",
+                "ollama": "Local Ollama (qwen2.5)",
+                "timps": "TIMPS-Coder 0.5B (on-device)",
+            }.get(name, "")
+            model = getattr(prov, "model", getattr(prov, "_model", "—"))
+            providers_info.append({
+                "name": name,
+                "available": available,
+                "active": False,
+                "model": str(model),
+                "description": description,
+            })
+        except Exception as e:
+            providers_info.append({"name": name, "available": False, "active": False, "model": "—", "description": str(e)})
+
+    # Mark the best available one as active
+    available_providers = [p for p in providers_info if p["available"]]
+    if available_providers:
+        available_providers[0]["active"] = True
+
+    return {"providers": providers_info}
+
+
+@app.post("/health/full")
+async def full_health_checkup():
+    from src.computer_agents import run_full_checkup
+    try:
+        result = run_full_checkup()
+        return result
+    except ImportError:
+        return {"status": "computer_agents module not available", "summary": "N/A"}
+    except Exception as e:
+        return {"status": "error", "error": str(e)}
+
+
+@app.post("/mcp/install")
+async def mcp_install(body: dict):
+    """Auto-configure TIMPS as MCP server in known AI tools."""
+    import json, os, pathlib
+    tool_id = body.get("tool_id", "all")
+    dry_run = body.get("dry_run", False)
+
+    repo_dir = str(pathlib.Path(__file__).parent.parent.resolve())
+    results = []
+
+    configs = {
+        "claude-code": {
+            "path": pathlib.Path.home() / ".claude" / "mcp.json",
+            "merger": lambda existing: {
+                **existing,
+                "mcpServers": {
+                    **existing.get("mcpServers", {}),
+                    "timps-swarm": {
+                        "command": "python",
+                        "args": ["-m", "mcp_server.server"],
+                        "cwd": repo_dir,
+                        "env": {},
+                    },
+                },
+            },
+        },
+        "cursor": {
+            "path": pathlib.Path.home() / ".cursor" / "mcp.json",
+            "merger": lambda existing: {
+                **existing,
+                "mcpServers": {
+                    **existing.get("mcpServers", {}),
+                    "timps-swarm": {
+                        "command": "python",
+                        "args": ["-m", "mcp_server.server"],
+                        "cwd": repo_dir,
+                        "env": {},
+                    },
+                },
+            },
+        },
+        "local-mcp": {
+            "path": pathlib.Path(repo_dir) / ".claude" / "mcp.json",
+            "merger": lambda _: {
+                "mcpServers": {
+                    "timps-swarm": {
+                        "command": "python",
+                        "args": ["-m", "mcp_server.server"],
+                        "cwd": repo_dir,
+                        "env": {},
+                    },
+                },
+            },
+        },
+    }
+
+    for cid, cfg in configs.items():
+        if tool_id not in ("all", cid):
+            continue
+        p = cfg["path"]
+        try:
+            existing = json.loads(p.read_text()) if p.exists() else {}
+            merged = cfg["merger"](existing)
+            if dry_run:
+                results.append({"tool": cid, "status": "dry_run",
+                                 "message": f"Would write to {p}", "config": merged})
+            else:
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(json.dumps(merged, indent=2))
+                results.append({"tool": cid, "status": "ok",
+                                 "message": f"Written to {p}"})
+        except Exception as e:
+            results.append({"tool": cid, "status": "error", "message": str(e)})
+
+    return {"results": results}
+
+
 # ── Entrypoint ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":

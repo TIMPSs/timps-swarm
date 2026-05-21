@@ -1,0 +1,36 @@
+{
+  "name": "timps-swarm",
+  "version": "2.0.0",
+  "description": "TIMPS Swarm — 56 AI agents for code generation, computer health, API design, database design, dependency scanning, and n8n workflow generation. One command to rule them all.",
+  "keywords": [
+    "ai", "agents", "swarm", "llm", "mcp", "claude", "code-generation",
+    "computer-health", "n8n", "workflow", "openapi", "dependency-scanning"
+  ],
+  "homepage": "https://github.com/Sandeeprdy1729/timps-swarm",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sandeeprdy1729/timps-swarm"
+  },
+  "license": "MIT",
+  "bin": {
+    "timps-swarm": "./bin/timps-swarm.js"
+  },
+  "scripts": {
+    "test": "node bin/timps-swarm.js --help"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "chalk": "^5.3.0",
+    "ora": "^8.0.1",
+    "node-fetch": "^3.3.2",
+    "inquirer": "^9.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md"
+  ]
+}

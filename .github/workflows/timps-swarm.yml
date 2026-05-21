@@ -1,0 +1,133 @@
+name: TIMPS Swarm
+
+on:
+  workflow_call:
+    inputs:
+      task:
+        description: "Natural-language task description for the swarm"
+        required: true
+        type: string
+      language:
+        description: "Primary programming language"
+        required: false
+        default: "python"
+        type: string
+      max_iterations:
+        description: "Maximum agent pipeline iterations"
+        required: false
+        default: "10"
+        type: string
+      artifacts_path:
+        description: "Directory to save generated artifacts"
+        required: false
+        default: "generated"
+        type: string
+    secrets:
+      GEMINI_API_KEY:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      OPENAI_API_KEY:
+        required: false
+      GROQ_API_KEY:
+        required: false
+    outputs:
+      run_id:
+        description: "TIMPS Swarm run identifier"
+        value: ${{ jobs.swarm.outputs.run_id }}
+      status:
+        description: "Final swarm status (completed|failed)"
+        value: ${{ jobs.swarm.outputs.status }}
+
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Task for the swarm"
+        required: true
+      language:
+        default: "python"
+      max_iterations:
+        default: "10"
+
+jobs:
+  swarm:
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.run.outputs.run_id }}
+      status: ${{ steps.wait.outputs.status }}
+
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install TIMPS Swarm
+        run: |
+          pip install -e ".[dev]" --quiet
+          # Install Ollama for local fallback (optional)
+          # curl -fsSL https://ollama.ai/install.sh | sh
+          # ollama pull qwen2.5-coder:7b &
+
+      - name: Start TIMPS server
+        run: |
+          python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 &
+          echo "Waiting for server…"
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:8000/health && break
+            sleep 2
+          done
+
+      - name: Run swarm
+        id: run
+        env:
+          TASK: ${{ inputs.task }}
+          LANGUAGE: ${{ inputs.language || 'python' }}
+          MAX_ITER: ${{ inputs.max_iterations || '10' }}
+        run: |
+          RESPONSE=$(curl -sf -X POST http://localhost:8000/swarm/run \
+            -H "Content-Type: application/json" \
+            -d "{\"request\": \"$TASK\", \"language\": \"$LANGUAGE\", \"max_iterations\": $MAX_ITER}")
+          RUN_ID=$(echo "$RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['run_id'])")
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Run ID: $RUN_ID"
+
+      - name: Wait for completion
+        id: wait
+        run: |
+          RUN_ID="${{ steps.run.outputs.run_id }}"
+          for i in $(seq 1 60); do
+            STATUS=$(curl -sf "http://localhost:8000/swarm/status?run_id=$RUN_ID" \
+              | python3 -c "import sys,json; d=json.load(sys.stdin); print('completed' if d.get('completed') else 'running')")
+            echo "[$i/60] status=$STATUS"
+            if [ "$STATUS" = "completed" ]; then
+              echo "status=completed" >> "$GITHUB_OUTPUT"
+              break
+            fi
+            sleep 10
+          done
+          if [ "$STATUS" != "completed" ]; then
+            echo "status=timeout" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p "${{ inputs.artifacts_path || 'generated' }}"
+          cp -r generated/* "${{ inputs.artifacts_path || 'generated' }}" 2>/dev/null || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: timps-swarm-${{ steps.run.outputs.run_id }}
+          path: ${{ inputs.artifacts_path || 'generated' }}
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,7 +1,7 @@
 # ── Core framework ────────────────────────────────────────────────
 langgraph==0.2.60
-langchain==0.3.0
-langchain-core==0.2.42
+langchain==0.3.25
+langchain-core==0.3.55
 
 # ── API server ────────────────────────────────────────────────────
 fastapi==0.115.0
