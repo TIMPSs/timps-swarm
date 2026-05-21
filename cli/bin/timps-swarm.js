@@ -25,7 +25,7 @@ import ora from "ora";
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { dirname, resolve, join } from "path";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { spawn, execSync } from "child_process";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -351,23 +351,75 @@ program
 program
   .command("install-mcp")
   .description("Auto-configure TIMPS Swarm as MCP server in Claude Code, Cursor, Windsurf, etc.")
-  .option("--tool <id>", "Specific tool to configure (default: all)")
+  .option("--tool <id>", "Specific tool to configure: claude-code|cursor|windsurf|local-mcp (default: all)")
   .option("--dry-run", "Preview only — don't write any files")
+  .option("--repo <path>", "Path to timps-swarm repo (auto-detected if omitted)")
   .action(async (opts) => {
     printHeader("MCP Installer");
-    const spinner = ora("  Configuring MCP integrations…").start();
-    try {
-      const result = await fetchAPI("/mcp/install", {
-        tool_id: opts.tool || "all",
-        dry_run: !!opts.dryRun,
-      });
-      spinner.succeed(chalk.green("  MCP configuration complete!"));
-      for (const r of (result.results || [])) {
-        const icon = { ok: "✅", skipped: "⏭️", error: "❌", dry_run: "👀" }[r.status] || "?";
-        console.log(`  ${icon}  ${chalk.bold(r.tool || r.id)} — ${r.message}`);
+
+    // Resolve the repo root — prefer explicit --repo, then walk up from this file
+    const repoDir = opts.repo || findRepoPython() || resolve(__dirname, "../..");
+    const home = process.env.HOME || process.env.USERPROFILE || "~";
+
+    const mcpEntry = {
+      command: "python",
+      args: ["-m", "mcp_server.server"],
+      cwd: repoDir,
+      env: {},
+    };
+
+    const targets = {
+      "claude-code":  join(home, ".claude", "mcp.json"),
+      "cursor":       join(home, ".cursor", "mcp.json"),
+      "windsurf":     join(home, ".windsurf", "mcp.json"),
+      "local-mcp":    join(repoDir, ".claude", "mcp.json"),
+    };
+
+    const wanted = opts.tool ? [opts.tool] : Object.keys(targets);
+    const results = [];
+
+    for (const id of wanted) {
+      const filePath = targets[id];
+      if (!filePath) {
+        results.push({ id, status: "error", message: "Unknown tool id" });
+        continue;
       }
-    } catch (err) {
-      spinner.fail(chalk.red(`  Failed: ${err.message}`));
+      try {
+        let existing = {};
+        if (existsSync(filePath)) {
+          try { existing = JSON.parse(readFileSync(filePath, "utf8")); } catch {}
+        }
+        const merged = {
+          ...existing,
+          mcpServers: { ...(existing.mcpServers || {}), "timps-swarm": mcpEntry },
+        };
+        if (opts.dryRun) {
+          results.push({ id, status: "dry_run", message: `Would write to ${filePath}` });
+        } else {
+          mkdirSync(dirname(filePath), { recursive: true });
+          writeFileSync(filePath, JSON.stringify(merged, null, 2));
+          results.push({ id, status: "ok", message: `Written → ${filePath}` });
+        }
+      } catch (err) {
+        results.push({ id, status: "error", message: err.message });
+      }
+    }
+
+    const icons = { ok: "✅", dry_run: "👀", error: "❌" };
+    const anyOk = results.some(r => r.status === "ok");
+    console.log();
+    for (const r of results) {
+      console.log(`  ${icons[r.status] || "?"} ${chalk.bold(r.id.padEnd(14))} ${r.message}`);
+    }
+    console.log();
+    if (anyOk) {
+      console.log(chalk.green("  MCP configuration complete!"));
+      console.log(chalk.dim(`  Repo path : ${repoDir}`));
+      console.log(chalk.dim("  Restart your AI tool and TIMPS Swarm will appear as an MCP server."));
+    } else if (opts.dryRun) {
+      console.log(chalk.yellow("  Dry-run complete — no files written."));
+    } else {
+      console.log(chalk.red("  Some targets failed — see errors above."));
       process.exit(1);
     }
   });

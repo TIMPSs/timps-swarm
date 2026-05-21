@@ -21,6 +21,7 @@
     "type": "git",
     "url": "git+https://github.com/Sandeeprdy1729/timps-swarm.git"
   },
+  "type": "module",
   "license": "MIT",
   "bin": {
     "timps-swarm": "bin/timps-swarm.js"
