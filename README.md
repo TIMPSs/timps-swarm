@@ -16,6 +16,7 @@
 [![MCP Protocol](https://img.shields.io/badge/Protocol-MCP-7C3AED?style=flat-square)](https://modelcontextprotocol.io)
 [![LangGraph](https://img.shields.io/badge/Powered_by-LangGraph-1C7EBF?style=flat-square)](https://github.com/langchain-ai/langgraph)
 [![Ollama](https://img.shields.io/badge/Local_AI-Ollama-000000?style=flat-square&logo=ollama&logoColor=white)](https://ollama.ai)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/MmsTNm8WF6)
 
 <br/>
 
