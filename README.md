@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="https://img.shields.io/badge/TIMPS%20SWARM-v2.1-FF6B35?style=for-the-badge&labelColor=1a1a1a" alt="TIMPS Swarm" />
+<img src="https://img.shields.io/badge/TIMPS%20SWARM-v2.2-FF6B35?style=for-the-badge&labelColor=1a1a1a" alt="TIMPS Swarm" />
 
-**One `npm install` puts 64 AI specialists into every coding tool you use — as parallel sub-agents, not just MCP tools.**
+**One `npm install` puts 160 AI specialists into every coding tool you use — as parallel sub-agents, not just MCP tools.**
 
 [![npm](https://img.shields.io/badge/npm-timps--swarm-CB3837?style=flat-square&logo=npm&logoColor=white)](https://www.npmjs.com/package/timps-swarm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
@@ -10,7 +10,7 @@
 [![MCP Protocol](https://img.shields.io/badge/Protocol-MCP-7C3AED?style=flat-square)](https://modelcontextprotocol.io)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/MmsTNm8WF6)
 
-[Quick Start](#quick-start) · [Sub-agents](#what-install-actually-does) · [64 Agents](#the-64-agents) · [MCP Setup](#mcp-integrations) · [CLI](#cli) · [Architecture](#architecture)
+[Quick Start](#quick-start) · [Sub-agents](#what-install-actually-does) · [160 Agents](#the-160-agents) · [MCP Setup](#mcp-integrations) · [CLI](#cli) · [Architecture](#architecture)
 
 </div>
 
@@ -24,7 +24,7 @@
 ## What it does
 
 - **Security audit any repo in 30 seconds** — `npx timps-swarm audit ./` finds CVEs, hardcoded secrets, and OWASP issues. No backend, no config, no API key.
-- **64 specialist agents in every AI tool** — one `install-mcp` command writes the MCP config for 9 IDEs (Claude Code, Cursor, Windsurf, Continue, Aider, Cline, Zed, VS Code, Gemini, Codex, Amp, Warp) **and** registers every agent as a native sub-agent so Claude Code / Cursor / Codex can dispatch them in parallel via `Task(subagent_type=...)`.
+- **160 specialist agents in every AI tool** — one `install-mcp` command writes the MCP config for 9 IDEs (Claude Code, Cursor, Windsurf, Continue, Aider, Cline, Zed, VS Code, Gemini, Codex, Amp, Warp) **and** registers every agent as a native sub-agent so Claude Code / Cursor / Codex can dispatch them in parallel via `Task(subagent_type=...)`.
 - **Local-first, BYOK** — runs on Ollama with zero API cost; plug in Gemini/Anthropic/OpenAI/Groq when you want more power.
 - **Works without the Python backend** — `npm install -g timps-swarm` ships a Node.js MCP stdio proxy (`cli/lib/mcp-proxy.js`) that talks to any running FastAPI server (local or remote via `TIMPS_API_URL`). The Python repo is optional.
 
@@ -40,7 +40,7 @@ Postinstall auto-detects every AI tool on your machine and:
 1. Writes the `timps-swarm` MCP server entry into every detected IDE config (with an explicit `env:` block forwarding `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `TIMPS_API_URL`, `OLLAMA_HOST`, `REDIS_URL`).
 2. Writes one sub-agent `.md` file per TIMPS tool into `~/.claude/agents/`, `./.claude/agents/`, and `~/.codex/agents/`.
 
-Restart your tool — 64 agents appear as MCP tools **and** as parallel sub-agents.
+Restart your tool — 160 agents appear as MCP tools **and** as parallel sub-agents.
 
 **Run without installing (zero setup):**
 
@@ -65,7 +65,7 @@ npx timps-swarm uninstall-mcp                # remove all of the above
 By default this writes:
 
 - **MCP server entries** into 9 IDE config files (one entry per IDE, all pointing at `npx timps-swarm mcp`).
-- **64 sub-agent `.md` files** into `~/.claude/agents/`, `./.claude/agents/`, `~/.codex/agents/` (one per MCP tool) so Claude Code's `Task(subagent_type="timps_security_auditor")`, Cursor Composer, and Codex can dispatch them in parallel.
+- **160 sub-agent `.md` files** into `~/.claude/agents/`, `./.claude/agents/`, `~/.codex/agents/` (one per MCP tool) so Claude Code's `Task(subagent_type="timps_kubernetes_navigator")`, Cursor Composer, and Codex can dispatch them in parallel.
 
 All writes are **idempotent** (re-running updates the existing file) and **reversible** via `uninstall-mcp` (which only removes the `timps-swarm` key and the `timps-*.md` files — your other config is untouched).
 
@@ -221,20 +221,20 @@ export ANTHROPIC_API_KEY=...   # optional
 ---
 
 <details>
-<summary><strong>The 64 agents — full list</strong></summary>
+<summary><strong>The 160 agents — full list</strong></summary>
 
-The MCP server exposes **64 specialist agents** across 9 categories (plus 96 tool-connector shortcuts from `src/tool_connectors` for things like browser automation, web search, and container ops — total 160 callable tools). Every agent is also registered as a native Claude Code / Cursor / Codex sub-agent.
+The MCP server exposes **160 specialist agents** across 9 categories. Every one is also registered as a native Claude Code / Cursor / Codex sub-agent.
 
 | Category | Count | Examples |
 |----------|------:|----------|
-| **SDLC Pipeline** | 10 | orchestrator, product_manager, architect, code_generator, code_reviewer, qa_tester, security_auditor, performance_optimizer, documentation_writer, devops |
+| **Priority** | 68 | research_agent, ab_testing_agent, abdm_agent, agent_composer, browser_automation, churn_predictor, demand_forecaster, dependency_agent, digilocker_agent, dpdp_act_auditor, federated_learning, finetuning_agent, fssai_compliance_agent, gst_compliance, indiehacker_agent, model_evaluator, model_perf_monitor, podcast_show_notes_writer, prompt_injection_scanner, quantum_ready, rag_designer, rag_evaluator, red_team_agent, release_manager, sbom_generator, security_remediation, service_mesh_configurator, sprint_planning_agent, storybook_story_generator, threat_intel_analyst, upi_agent, vector_db_agent, voice_agent_designer, wearable_health_coach, web3_agent, win_loss_analyst, … |
+| **Expert Diagnostics** | 51 | dependency_rebel, kubernetes_navigator, docker_compose_architect, pipeline_healer, compliance_auditor, incident_response_coordinator, accessibility_tester, mcp_server_generator, observability_cost_optimizer, license_compliance_scanner, container_image_scanner, adr_writer, contract_reviewer, court_case_summarizer, data_pipeline, db_migration_pilot, disaster_recovery, game_day_facilitator, git_workflow_automator, graphql_agent, iac_drift_detector, load_testing, local_rag_builder, log_pattern_analyzer, phishing_simulator, postmortem_agent, test_intelligence, visual_regression_detective, web_scraping, web_search, … |
 | **Computer Health** | 12 | system_optimizer, file_organizer, environment_doctor, security_guard, network_medic, battery_analyst, update_manager, log_interpreter, privacy_cleaner, media_librarian, backup_sentinel, context_switcher |
 | **Developer Workflow** | 12 | issue_triager, boilerplate_architect, pr_reviewer, dependency_sentinel, unit_test_writer, docstring_generator, log_detective, sql_optimizer, sprint_reporter, flaky_test_hunter, api_contract_auditor, content_multiplier |
-| **Knowledge Worker** | 6 | inbox_gatekeeper, meeting_condenser, research_scout, trend_monitor, data_wrangler, competitor_tracker |
-| **Expert Diagnostic** | 12 | dependency_rebel, merge_conflict_predictor, tech_debt_quantifier, migration_pilot, flaky_test_detective, onboarding_mentor, incident_responder, cloud_cost_auditor, certificate_rotator, terraform_plan_reviewer, dotfile_doctor, disk_space_prophet |
-| **Priority** | 12 | research_agent, api_design_agent, db_agent, dependency_agent, n8n_workflow_agent, refactoring_agent, test_data_agent, monitoring_agent, ui_ux_agent, i18n_agent, cost_optimizer, self_critic_agent |
+| **Knowledge Worker** | 7 | inbox_gatekeeper, meeting_condenser, research_scout, trend_monitor, data_wrangler, competitor_tracker, agri_commodity_forecaster |
+| **Meta** | 6 | list_agents, dispatch, full_checkup, list_providers, connect_tools, tool_status |
 | **Context / Kernel** | 3 | context_briefing, delegate, kernel_status |
-| **Meta** | 7 | list_agents, dispatch, full_checkup, run_task, list_providers, connect_tools, tool_status |
+| **SDLC Pipeline** | 1 | run_task (the 10-node LangGraph orchestrator: PM → Architect → Code → Review → QA → Security → Perf → Docs → DevOps) |
 
 ```bash
 # Trigger the full SDLC pipeline
@@ -247,9 +247,14 @@ python3 give_work.py "My laptop fan is always running"
 
 # Delegate a multi-step goal
 npx timps-swarm delegate "fix the auth bug and ensure 80% test coverage"
+
+# Call any of the 160 directly from the CLI
+npx timps-swarm mcp   # then use any MCP client
 ```
 
 The **Self-Critic Agent** is the most valuable one — it scores any output 1–10 and re-runs the originating agent until the threshold is met, closing the quality loop across the entire swarm.
+
+> The 160 includes Phase 3 (12 priority), Phase 5 (7 more), Phase 6 nextgen (21 — security/DevOps/MLOps/emerging), and Phase 7 (32 — India verticals, compliance, content, sales/voice, research). The `src/tool_connectors` module has a separate `TOOLS` dict (24 IDE config shortcuts — `claude_code`, `cursor`, etc.) used at runtime by `timps_connect_tools` and `timps_tool_status`; those are not part of the 160.
 
 </details>
 
@@ -277,14 +282,14 @@ COMMANDS
   critique <content>     Score output 1-10, auto-improve until threshold
   health                 Computer health checkup (12 agents)
   providers              Show configured LLM providers
-  install-mcp            Auto-configure TIMPS in 9 AI tools + 64 sub-agents
-  uninstall-mcp          Remove the MCP config and 64 sub-agent .md files
+  install-mcp            Auto-configure TIMPS in 9 AI tools + 160 sub-agents
+  uninstall-mcp          Remove the MCP config and 160 sub-agent .md files
   start [--repo <path>]  Start the TIMPS Swarm API server (port 8000)
   mcp   [--repo <path>]  Start the MCP stdio server (Python or Node.js fallback)
 
 FLAGS (install-mcp)
   --tool <id>            Only configure one IDE (claude-code, cursor, codex-cli, …)
-  --no-sub-agents        Skip writing 64 sub-agent .md files (MCP config only)
+  --no-sub-agents        Skip writing 160 sub-agent .md files (MCP config only)
   --dry-run              Preview without writing anything
   --silent               Suppress output (postinstall)
 
@@ -315,7 +320,7 @@ If `timps-swarm mcp` is invoked but no Python repo is on disk, it transparently 
               ▼                        ▼                        ▼
   ┌──────────────────────┐   ┌──────────────────────┐   ┌────────────────────┐
   │ mcp_server/server.py │   │ cli/lib/mcp-proxy.js │   │     src/main.py    │
-  │  Python — 64 tools,  │   │  Node.js fallback    │   │  FastAPI + WS      │
+  │  Python — 160 tools, │   │  Node.js fallback    │   │  FastAPI + WS      │
   │  full MCP sampling   │   │  (npm-only path)     │   │  /swarm/run,       │
   │                      │   │                       │   │  /agents/*,        │
   │                      │   │                       │   │  /mcp/tools,       │
@@ -335,7 +340,7 @@ If `timps-swarm mcp` is invoked but no Python repo is on disk, it transparently 
        ┌───────────────────┬──────────┴──────────┬───────────────────┐
        ▼                   ▼                     ▼                   ▼
   SDLC DAG          Health Graph          Specialist Agents      Context / Kernel
-  (10 nodes)        (12 nodes)            (42 direct calls)      (3 nodes)
+  (10 nodes)        (12 nodes)            (120 direct calls)     (3 nodes)
        │                   │                     │                   │
        └───────────────────┴─────────────────────┴───────────────────┘
                                        │
@@ -349,7 +354,7 @@ If `timps-swarm mcp` is invoked but no Python repo is on disk, it transparently 
 
 Three transport paths converge on the same dispatch table:
 
-1. **Python MCP stdio** (`mcp_server/server.py`) — full MCP sampling, in-process, 64 tools. Used when the Python repo is on disk.
+1. **Python MCP stdio** (`mcp_server/server.py`) — full MCP sampling, in-process, 160 tools. Used when the Python repo is on disk.
 2. **Node.js MCP stdio proxy** (`cli/lib/mcp-proxy.js`) — pure stdio JSON-RPC 2.0 that proxies `tools/list` + `tools/call` to a running FastAPI server. Used when only the npm package is installed (no Python repo).
 3. **FastAPI REST + WebSocket** (`src/main.py`) — `/swarm/run`, `/agents/*`, `/health`, `/ws`, plus the bridge endpoints `/mcp/tools` (catalogue) and `/mcp/tools/call` (dispatch).
 

@@ -16,8 +16,8 @@
  *   providers           Show configured LLM providers
  *   start               Start the TIMPS Swarm API server
  *   mcp                 Start the MCP stdio server
- *   install-mcp         Auto-configure TIMPS as MCP + register 64 native sub-agents
- *   uninstall-mcp       Remove the TIMPS MCP config and 64 sub-agent .md files
+ *   install-mcp         Auto-configure TIMPS as MCP + register 160 native sub-agents
+ *   uninstall-mcp       Remove the TIMPS MCP config and 160 sub-agent .md files
  */
 
 import { Command } from "commander";
@@ -541,7 +541,7 @@ program
   .option("--dry-run", "Preview only — don't write any files")
   .option("--silent", "Suppress output (used during postinstall)")
   .option("--repo <path>", "Path to timps-swarm repo (auto-detected if omitted)")
-  .option("--no-sub-agents", "Skip writing 64 sub-agent .md files (MCP config only)")
+  .option("--no-sub-agents", "Skip writing 160 sub-agent .md files (MCP config only)")
   .action(async (opts) => {
     // In postinstall context with CI / non-TTY, skip silently
     if (opts.silent && (process.env.CI || process.env.CONTINUOUS_INTEGRATION || !process.stdout.isTTY)) {
@@ -699,7 +699,7 @@ program
     }
 
     // ── Sub-agent file registration ───────────────────────────────────────
-    // Each of the 64 MCP tools is also registered as a native sub-agent so
+    // Each of the 160 MCP tools is also registered as a native sub-agent so
     // Claude Code / Cursor / Codex can dispatch them in parallel via their
     // Task/Composer systems. Default-on, idempotent, reversible via uninstall-mcp.
     if (opts.subAgents !== false) {
@@ -789,11 +789,11 @@ program
 // ── uninstall-mcp ────────────────────────────────────────────────────────────
 program
   .command("uninstall-mcp")
-  .description("Remove the TIMPS MCP server entry and 64 sub-agent files from every configured IDE")
+  .description("Remove the TIMPS MCP server entry and 160 sub-agent files from every configured IDE")
   .option("--tool <id>", "Specific tool to remove (default: all detected)")
   .option("--dry-run", "Preview only — don't delete any files")
   .option("--keep-config", "Only remove sub-agent .md files; keep the MCP server config")
-  .option("--keep-agents", "Only remove the MCP server config; keep the 64 sub-agent .md files")
+  .option("--keep-agents", "Only remove the MCP server config; keep the 160 sub-agent .md files")
   .action(async (opts) => {
     printHeader("MCP Uninstaller");
     const home = process.env.HOME || process.env.USERPROFILE || "~";

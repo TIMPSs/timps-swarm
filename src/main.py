@@ -715,7 +715,7 @@ class MCPCallRequest(BaseModel):
 @app.post("/mcp/tools/call")
 async def call_mcp_tool(req: MCPCallRequest):
     """Dispatch a single MCP tool call. Mirrors the stdio dispatch in
-    mcp_server/server.py so the Node.js proxy can route any of the 64 tools
+    mcp_server/server.py so the Node.js proxy can route any of the 160 tools
     through one HTTP endpoint."""
     handlers = _get_mcp_handlers()
     handler = handlers.get(req.name)

@@ -1,7 +1,7 @@
 /**
- * agent-files.js — render native sub-agent Markdown files for the 64 TIMPS
- * tools, so Claude Code / Cursor / Codex pick them up as parallel sub-agents
- * (not just MCP tools).
+ * agent-files.js — render native sub-agent Markdown files for all TIMPS
+ * agents (currently 160), so Claude Code / Cursor / Codex pick them up as
+ * parallel sub-agents (not just MCP tools).
  *
  * For each agent we write:
  *   ~/.claude/agents/timps-<name>.md      (Claude Code native sub-agent)
@@ -101,7 +101,8 @@ export function subAgentFilename(agent) {
 }
 
 /**
- * Idempotently write all 64 sub-agent files to the requested IDE targets.
+ * Idempotently write all sub-agent files to the requested IDE targets.
+ * The number written equals AGENTS.length (160 at v2.2.0).
  *
  * @param {{home?: string, cwd?: string, targetIds?: string[], dryRun?: boolean}} opts
  * @returns {{written: string[], skipped: string[], errors: string[]}}
