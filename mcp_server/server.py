@@ -1095,6 +1095,118 @@ TOOLS: List[Dict[str, Any]] = [
         ]
     ],
 
+    # ── NEW nextgen agents (Phase 6 — 21 agents across 8 categories) ────────────
+    # Generated from the TIMPS Swarm Deep Research Report — closes gaps in security
+    # ops, K8s, accessibility, release engineering, MLOps, and emerging tech.
+    *[
+        {
+            "name": f"timps_{name}",
+            "description": desc,
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "request": {"type": "string", "description": "Plain-English task or context for the agent."},
+                    "language": {"type": "string", "description": "Primary programming language (default: python).", "default": "python"},
+                },
+                "required": [],
+            },
+        }
+        for name, desc in [
+            # Security
+            ("threat_intel_analyst",         "Ingest threat feeds (CVE, MITRE ATT&CK, CISA KEV) and produce a threat brief with detection rules and prioritised mitigations."),
+            ("security_remediation",         "Convert a security finding (CVE, SAST, secret, misconfig) into a step-by-step patch plan with a working code diff and rollback."),
+            ("compliance_auditor",           "Map a codebase + infra config against SOC 2 / ISO 27001 / HIPAA / PCI-DSS / GDPR controls; produce an evidence pack and gap report."),
+            ("incident_response_coordinator","Turn an active incident (SIEM alert, customer report, CVE disclosure) into a play-by-play response with comms, containment, and a postmortem stub."),
+            # DevOps & Infrastructure
+            ("kubernetes_navigator",         "Diagnose Kubernetes workloads: pods, services, ingress, RBAC, resources, network policies. Outputs fix YAML and Helm/Kustomize patches."),
+            ("pipeline_healer",              "Read a failing CI/CD run and produce a minimal diff to make it green: cache tweaks, image bumps, secret injection, retry policies."),
+            ("docker_compose_architect",     "Compose a production-grade multi-service docker-compose (or compose.yaml) for a project: env, healthchecks, volumes, networks, profiles."),
+            # Code Quality
+            ("test_intelligence",            "Analyse test suite + git bug history to find untested code paths, suggest property-based tests, and propose a mutation-testing config."),
+            ("changelog_generator",          "Generate a Conventional Commits changelog from commit history, PRs, and issues; supports semver bump recommendation."),
+            # Data & Analytics
+            ("db_migration_pilot",           "Plan a zero-downtime database migration: expand-contract phases, backfill scripts, dual-write strategy, kill-switches, rollback plan."),
+            ("log_pattern_analyzer",         "Cluster production log errors, identify root cause, suggest a fix. Handles stack traces, JSON logs, syslog, and journald output."),
+            ("api_perf_profiler",            "Profile an API from access logs / traces — p50/p95/p99 by endpoint, slow query, N+1 detection, and concrete optimisations."),
+            # User Experience
+            ("accessibility_tester",         "Audit a frontend (HTML / React / Vue) for WCAG 2.2 AA & AAA issues — colour contrast, ARIA, keyboard nav, focus order, screen reader hints."),
+            ("visual_regression_detective",  "Diff design tokens / Storybook / screenshot baselines and surface unintended visual changes with root-cause hints."),
+            # Business & Productivity
+            ("release_manager",              "Produce a release plan: SemVer bump, release notes, rollout/canary strategy, rollback gate, customer-comms draft, and stakeholder checklist."),
+            ("tech_writer_assistant",        "Refresh a project README, write ADRs, generate a 'Getting Started' guide, an FAQ, and a reference page from the codebase."),
+            # MLOps
+            ("model_perf_monitor",           "Monitor an ML model in production: drift, accuracy decay, latency, and cost — with alerting thresholds and a re-training trigger plan."),
+            # Emerging Technology
+            ("mcp_server_generator",         "Scaffold a complete Model Context Protocol (MCP) server: tools, resources, prompts, server.py, pyproject, smoke-test client, README."),
+            ("ai_workflow_orchestrator",     "Turn a plain-English multi-step workflow into executable code for LangGraph, Temporal, or Claude-Flow — plus a Mermaid diagram and tests."),
+            ("local_rag_builder",            "Build a fully-local RAG pipeline (Ollama embeddings + Chroma/FAISS + reranker + chat) from a corpus description. Emits ingest, retrieve, generate, evaluate, Dockerfile, Makefile."),
+            ("git_workflow_automator",       "Generate an opinionated git workflow: pre-commit hooks, commitlint, lefthook, semantic-release / release-please config, PR template, branch-protection policy, CODEOWNERS."),
+            ("web_search",                   "Multi-engine web search (DuckDuckGo / Brave / SerpAPI / Bing) with deduplication, content extraction, and LLM-synthesised answer with [N] citations. Use for live lookups, news, vendor docs, and competitive intel."),
+        ]
+    ],
+
+    # ── NEW phase7 agents (Phase 7 — 32 agents across 9 categories) ─────────────
+    # Expansion pack covering security & offensive testing, compliance & legal,
+    # DevOps & reliability, research & intel, data & forecasting, productivity,
+    # content & creative, sales/voice, and ML/AI ops.
+    *[
+        {
+            "name": f"timps_{name}",
+            "description": desc,
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "request": {"type": "string", "description": "Plain-English task or context for the agent."},
+                    "language": {"type": "string", "description": "Primary programming language (default: python).", "default": "python"},
+                },
+                "required": [],
+            },
+        }
+        for name, desc in [
+            # Security & Offensive Testing
+            ("red_team_agent",                "Plan and execute an OWASP-style red-team engagement: threat model, adversarial test cases, payloads, runnable exploit harness, and a remediation checklist."),
+            ("prompt_injection_scanner",      "Scan prompts, system messages, and tool schemas for prompt-injection / jailbreak / data-exfiltration risk. Produces a severity-rated report and hardened prompt rewrites."),
+            ("phishing_simulator",            "Generate a realistic, organisation-tailored phishing simulation: emails, landing pages, payload tracking, and a click-through metrics plan. Strictly for authorised training use."),
+            ("api_security_tester",           "Run an OWASP API Security Top-10 (2023) audit against an OpenAPI spec or live endpoint — broken auth, BOLA, mass assignment, rate-limit, SSRF, injection — with a runnable test harness."),
+            ("container_image_scanner",       "Scan a container image / Dockerfile for CVEs, misconfigurations, and supply-chain risk. Wraps trivy/grype/syft when present; falls back to static analysis of the Dockerfile."),
+            # Compliance & Legal
+            ("contract_reviewer",             "Review a contract (MSA, NDA, SaaS, vendor agreement) for red-flags: indemnification, liability caps, IP, data, termination, SLAs. Returns a clause-by-clause scorecard and a redline."),
+            ("dpdp_act_auditor",              "Audit a system or data flow against India's Digital Personal Data Protection Act 2023: consent, notice, data-principal rights, breach, penalties, and a remediation roadmap."),
+            ("fssai_compliance_agent",        "Assess an F&B product / packaging against India's FSSAI regulations: license type, label checklist, additive and claim restrictions, and a submission-ready checklist."),
+            # DevOps & Reliability
+            ("observability_cost_optimizer",  "Analyse your observability bill (Datadog / New Relic / Grafana Cloud / Splunk) and recommend cardinality pruning, sampling, log-volume cuts, and tier migrations with projected savings."),
+            ("service_mesh_configurator",     "Generate production-grade service-mesh config (Istio / Linkerd / Consul) — mTLS, traffic policies, retries, circuit-breakers, observability, multi-cluster, and a migration plan."),
+            ("iac_drift_detector",            "Detect drift between Terraform / Pulumi / CloudFormation state and live cloud — produces a ranked diff, blast-radius estimate, and a safe `terraform plan` review."),
+            ("sbom_generator",                "Generate a CycloneDX / SPDX Software Bill of Materials from a project tree + manifests, integrate syft/trivy if available, and flag license and supply-chain risks."),
+            ("license_compliance_scanner",    "Scan source + manifests for OSS license usage (GPL/AGPL/LGPL/SSPL/Commercial), produce a per-dependency report, and a copyleft-compatibility matrix for your distribution model."),
+            # Research & Intel
+            ("deep_research_agent",           "Multi-hop, multi-source research planner: decomposes a query, runs parallel web searches, cross-references, and returns a sourced report with [N] citations and a bottom-line answer."),
+            ("agent_marketplace_curator",     "Curate the best AI agent / MCP / LLM-tool marketplaces and recommend picks by use-case. Tracks pulse.mcp.run, glama.ai, mcp.so, OpenAI GPT Store, Claude tool directory."),
+            ("adr_writer",                    "Turn a technical decision into a Michael Nygard-style Architecture Decision Record: context, options matrix, decision, consequences, and a rendered Markdown file."),
+            # Data & Forecasting
+            ("churn_predictor",               "Score accounts/users for churn risk from behavioural signals, build a survival-curve forecast, segment at-risk cohorts, and recommend save plays per segment."),
+            ("demand_forecaster",             "Produce a SKU/location-level demand forecast with seasonality, promotions, and trend. Returns intervals, backtest MAPE/MASE, and an ordering recommendation."),
+            ("agri_commodity_forecaster",     "Forecast Indian agri-commodity prices (mandi arrivals, MSP, weather, festival demand). Returns direction, confidence, and a hedge recommendation for farmers / FPOs / traders."),
+            # Productivity & Wellness
+            ("calendar_optimizer",            "Re-design a noisy calendar: time-block deep work, batch meetings, protect maker time, add commute/exercise buffers, and emit an ICS patch and a focus-mode script."),
+            ("wearable_health_coach",         "Interpret wearable / fitness data (HRV, sleep, RHR, steps, SpO2) into an actionable, evidence-based weekly coaching plan with safety guardrails."),
+            ("game_day_facilitator",          "Plan and run a chaos-engineering game-day: hypothesis, blast radius, rollback, comms tree, inject schedule, success criteria, and a blameless retrospective template."),
+            # Content & Creative
+            ("cold_email_sequence_writer",    "Write a 5-7 step cold-outreach email sequence for a persona + offer, with subject A/B variants, social proof, objection handling, and a reply-promise CTA. Spam-safe."),
+            ("demo_video_script_writer",      "Write a punchy 60-90s product demo video script: hook, problem, demo beats, payoff, CTA — with storyboard, B-roll suggestions, and on-screen copy."),
+            ("podcast_show_notes_writer",     "Turn a podcast transcript / outline into SEO-friendly show notes: title, summary, chapter timestamps, key quotes, links, guest bio, and 3 tweet drafts."),
+            ("storybook_story_generator",     "Generate an original illustrated children's story for a target age, theme, and moral: outline, full prose, page breaks, illustration prompts, and a printable PDF layout spec."),
+            # Sales, Voice & Legal-adjacent
+            ("win_loss_analyst",              "Analyse a set of won/lost deals to surface the real reasons — pricing, champion, timing, competitor, fit — and recommend sales-coaching and product fixes."),
+            ("voice_agent_designer",          "Design a production voice / phone agent: persona, system prompt, SSML, tool calls, barge-in handling, escalation rules, latency budget, and test utterances."),
+            ("court_case_summarizer",         "Summarise a court judgment / order: bench, facts, issues, holdings, reasoning, ratio, and citations in a structured brief. For legal research, not legal advice."),
+            # ML / AI Ops
+            ("rag_evaluator",                 "Run a RAGAS-style evaluation of a RAG pipeline: context precision/recall, faithfulness, answer relevance, MRR/NDCG, with a runnable eval harness and an improvement plan."),
+            ("computer_use_agent",            "Plan a GUI / computer-use task and emit OS-specific step scripts (cliclick / xdotool / PowerShell) with safety approval gates. Pairs with the runtime computer_use tools."),
+            ("tracing_emitter",               "Generate an OpenTelemetry tracing bootstrap: service name, resource attributes, auto-instrumentation, sampling, span/metric/log pipeline, and exporter config."),
+        ]
+    ],
+
     # ── Provider status ────────────────────────────────────────────────────────
     {
         "name": "timps_list_providers",
@@ -1222,6 +1334,27 @@ def _handle_list_agents(_args: Dict) -> str:
         ("business",     "Business (6)",     ["analytics_agent", "ab_testing_agent", "monetization_agent", "seo_agent", "postmortem_agent", "sprint_planning_agent"]),
         ("infra",        "Infra (6)",        ["load_testing", "feature_flag", "disaster_recovery", "finops_agent", "secrets_management", "edge_agent"]),
         ("emerging",     "Emerging (4)",     ["robotics_agent", "web3_agent", "federated_learning", "quantum_ready"]),
+        ("nextgen",      "NextGen (22)",     ["threat_intel_analyst", "security_remediation", "compliance_auditor", "incident_response_coordinator",
+                                              "kubernetes_navigator", "pipeline_healer", "docker_compose_architect",
+                                              "test_intelligence", "changelog_generator",
+                                              "db_migration_pilot", "log_pattern_analyzer", "api_perf_profiler",
+                                              "accessibility_tester", "visual_regression_detective",
+                                              "release_manager", "tech_writer_assistant",
+                                              "model_perf_monitor",
+                                              "mcp_server_generator", "ai_workflow_orchestrator", "local_rag_builder", "git_workflow_automator",
+                                              "web_search"]),
+        ("phase7",       "Phase 7 (32)",     ["red_team_agent", "prompt_injection_scanner", "phishing_simulator",
+                                              "api_security_tester", "container_image_scanner",
+                                              "contract_reviewer", "dpdp_act_auditor", "fssai_compliance_agent",
+                                              "observability_cost_optimizer", "service_mesh_configurator",
+                                              "iac_drift_detector", "sbom_generator", "license_compliance_scanner",
+                                              "deep_research_agent", "agent_marketplace_curator", "adr_writer",
+                                              "churn_predictor", "demand_forecaster", "agri_commodity_forecaster",
+                                              "calendar_optimizer", "wearable_health_coach", "game_day_facilitator",
+                                              "cold_email_sequence_writer", "demo_video_script_writer",
+                                              "podcast_show_notes_writer", "storybook_story_generator",
+                                              "win_loss_analyst", "voice_agent_designer", "court_case_summarizer",
+                                              "rag_evaluator", "computer_use_agent", "tracing_emitter"]),
     ]:
         lines.append(f"\n## {label} — `src/{pkg}/`\n")
         for name in names:
@@ -1644,6 +1777,27 @@ _TOOL_HANDLERS: Dict[str, Any] = {
             ("infra",        ["load_testing", "feature_flag", "disaster_recovery",
                               "finops_agent", "secrets_management", "edge_agent"]),
             ("emerging",     ["robotics_agent", "web3_agent", "federated_learning", "quantum_ready"]),
+            ("nextgen",      ["threat_intel_analyst", "security_remediation", "compliance_auditor", "incident_response_coordinator",
+                              "kubernetes_navigator", "pipeline_healer", "docker_compose_architect",
+                              "test_intelligence", "changelog_generator",
+                              "db_migration_pilot", "log_pattern_analyzer", "api_perf_profiler",
+                              "accessibility_tester", "visual_regression_detective",
+                              "release_manager", "tech_writer_assistant",
+                              "model_perf_monitor",
+                              "mcp_server_generator", "ai_workflow_orchestrator", "local_rag_builder", "git_workflow_automator",
+                              "web_search"]),
+            ("phase7",       ["red_team_agent", "prompt_injection_scanner", "phishing_simulator",
+                              "api_security_tester", "container_image_scanner",
+                              "contract_reviewer", "dpdp_act_auditor", "fssai_compliance_agent",
+                              "observability_cost_optimizer", "service_mesh_configurator",
+                              "iac_drift_detector", "sbom_generator", "license_compliance_scanner",
+                              "deep_research_agent", "agent_marketplace_curator", "adr_writer",
+                              "churn_predictor", "demand_forecaster", "agri_commodity_forecaster",
+                              "calendar_optimizer", "wearable_health_coach", "game_day_facilitator",
+                              "cold_email_sequence_writer", "demo_video_script_writer",
+                              "podcast_show_notes_writer", "storybook_story_generator",
+                              "win_loss_analyst", "voice_agent_designer", "court_case_summarizer",
+                              "rag_evaluator", "computer_use_agent", "tracing_emitter"]),
         ]
         for name in names
     },
@@ -1697,7 +1851,7 @@ def _handle_request(msg: Dict) -> Optional[str]:
         # Register the sampler so LLMRouter uses it for all subsequent calls
         try:
             from src.llm_router import set_mcp_sampler
-            set_mcp_sampler(_mcp_sample)
+            set_mcp_sampler(_mcp_sample, supports_sampling=_CLIENT_SUPPORTS_SAMPLING)
         except Exception:
             pass
         return _make_response(id_, {

@@ -22,10 +22,20 @@ class TIMPSProvider(ProviderInterface):
         self._tokenizer = None
 
     def is_available(self) -> bool:
-        # Only consider available if HuggingFace transformers is importable
+        # Only available when the model files are actually cached locally
+        # AND transformers is importable. This prevents the provider from
+        # being selected when it will just fall through to Ollama anyway.
         try:
             import transformers  # noqa: F401
-            return True
+            from huggingface_hub import snapshot_download
+            import os
+            # Check if model is cached locally (don't trigger a download)
+            model_path = os.getenv("TIMPS_MODEL_PATH", "sandeeprdy1729/TIMPS-Coder-0.5B")
+            local_path = os.path.join(os.path.expanduser("~"), ".cache", "huggingface", "hub")
+            if os.path.exists(local_path) and model_path.replace("/", "--") in " ".join(os.listdir(local_path)) if os.path.isdir(local_path) else False:
+                return True
+            # Model not cached — don't report as available (would fail or trigger download)
+            return False
         except ImportError:
             return False
 
@@ -41,9 +51,7 @@ class TIMPSProvider(ProviderInterface):
         if not self._loaded:
             self._load()
         if self._model is None:
-            # Fallback to Ollama inline if model unavailable
-            from src.providers.ollama import OllamaProvider
-            return OllamaProvider().chat(user, system, "qwen2.5-coder:7b", temperature)
+            return "[TIMPS-Coder model not available]"
 
         messages = [
             {"role": "system", "content": system or "You are TIMPS-Coder. Explain the bug then show the fix."},

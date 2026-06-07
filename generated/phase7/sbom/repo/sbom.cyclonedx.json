@@ -1,0 +1,748 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "metadata": {
+    "timestamp": "20260606_114945",
+    "tools": [
+      {
+        "vendor": "TIMPS Swarm",
+        "name": "sbom_generator",
+        "version": "1.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "name": "",
+      "version": "0.0.0"
+    },
+    "properties": [
+      {
+        "name": "scanned_images",
+        "value": "none"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "langgraph",
+      "version": "0.2.60",
+      "purl": "pkg:pypi/langgraph@0.2.60",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "langchain",
+      "version": "0.3.25",
+      "purl": "pkg:pypi/langchain@0.3.25",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "langchain-core",
+      "version": "0.3.55",
+      "purl": "pkg:pypi/langchain-core@0.3.55",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "fastapi",
+      "version": "0.115.0",
+      "purl": "pkg:pypi/fastapi@0.115.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pydantic",
+      "version": "2.9.0",
+      "purl": "pkg:pypi/pydantic@2.9.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "python-multipart",
+      "version": "0.0.12",
+      "purl": "pkg:pypi/python-multipart@0.0.12",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "requests",
+      "version": "2.32.3",
+      "purl": "pkg:pypi/requests@2.32.3",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "transformers",
+      "version": "4.46.0",
+      "purl": "pkg:pypi/transformers@4.46.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "huggingface-hub",
+      "version": "0.26.0",
+      "purl": "pkg:pypi/huggingface-hub@0.26.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "datasets",
+      "version": "3.0.0",
+      "purl": "pkg:pypi/datasets@3.0.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "tokenizers",
+      "version": "0.20.0",
+      "purl": "pkg:pypi/tokenizers@0.20.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "peft",
+      "version": "0.13.2",
+      "purl": "pkg:pypi/peft@0.13.2",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "torch",
+      "version": "2.5.0",
+      "purl": "pkg:pypi/torch@2.5.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "redis",
+      "version": "5.0.1",
+      "purl": "pkg:pypi/redis@5.0.1",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pytest",
+      "version": "8.3.0",
+      "purl": "pkg:pypi/pytest@8.3.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "bandit",
+      "version": "1.7.10",
+      "purl": "pkg:pypi/bandit@1.7.10",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "black",
+      "version": "24.10.0",
+      "purl": "pkg:pypi/black@24.10.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "playwright",
+      "version": "1.49.0",
+      "purl": "pkg:pypi/playwright@1.49.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "aiohttp",
+      "version": "3.11.0",
+      "purl": "pkg:pypi/aiohttp@3.11.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "psutil",
+      "version": "6.1.0",
+      "purl": "pkg:pypi/psutil@6.1.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "aiohttp",
+      "version": "3.11.0",
+      "purl": "pkg:pypi/aiohttp@3.11.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "python-dotenv",
+      "version": "1.0.1",
+      "purl": "pkg:pypi/python-dotenv@1.0.1",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "langgraph",
+      "version": "0.2.60",
+      "purl": "pkg:pypi/langgraph@0.2.60",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "langchain",
+      "version": "0.3.0",
+      "purl": "pkg:pypi/langchain@0.3.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "langchain-core",
+      "version": "0.2.42",
+      "purl": "pkg:pypi/langchain-core@0.2.42",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "fastapi",
+      "version": "0.115.0",
+      "purl": "pkg:pypi/fastapi@0.115.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "pydantic",
+      "version": "2.9.0",
+      "purl": "pkg:pypi/pydantic@2.9.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "requests",
+      "version": "2.32.3",
+      "purl": "pkg:pypi/requests@2.32.3",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "httpx",
+      "version": "0.27.2",
+      "purl": "pkg:pypi/httpx@0.27.2",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "psutil",
+      "version": "6.1.0",
+      "purl": "pkg:pypi/psutil@6.1.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "playwright",
+      "version": "1.49.0",
+      "purl": "pkg:pypi/playwright@1.49.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "aiohttp",
+      "version": "3.11.0",
+      "purl": "pkg:pypi/aiohttp@3.11.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "transformers",
+      "version": "4.46.0",
+      "purl": "pkg:pypi/transformers@4.46.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "optional"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "peft",
+      "version": "0.13.2",
+      "purl": "pkg:pypi/peft@0.13.2",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "optional"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "huggingface-hub",
+      "version": "0.26.0",
+      "purl": "pkg:pypi/huggingface-hub@0.26.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "pypi"
+        },
+        {
+          "name": "scope",
+          "value": "optional"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "commander",
+      "version": "12.0.0",
+      "purl": "pkg:npm/commander@12.0.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "chalk",
+      "version": "5.3.0",
+      "purl": "pkg:npm/chalk@5.3.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ora",
+      "version": "8.0.1",
+      "purl": "pkg:npm/ora@8.0.1",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "node-fetch",
+      "version": "3.3.2",
+      "purl": "pkg:npm/node-fetch@3.3.2",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "inquirer",
+      "version": "9.2.0",
+      "purl": "pkg:npm/inquirer@9.2.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react",
+      "version": "18.3.0",
+      "purl": "pkg:npm/react@18.3.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-dom",
+      "version": "18.3.0",
+      "purl": "pkg:npm/react-dom@18.3.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "react-scripts",
+      "version": "5.0.1",
+      "purl": "pkg:npm/react-scripts@5.0.1",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "recharts",
+      "version": "2.13.0",
+      "purl": "pkg:npm/recharts@2.13.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "lucide-react",
+      "version": "0.454.0",
+      "purl": "pkg:npm/lucide-react@0.454.0",
+      "properties": [
+        {
+          "name": "ecosystem",
+          "value": "npm"
+        },
+        {
+          "name": "scope",
+          "value": "runtime"
+        }
+      ]
+    }
+  ]
+}

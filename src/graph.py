@@ -264,9 +264,12 @@ def build_graph() -> StateGraph:
         from src.emerging   import EMERGING_AGENTS
         from src.more_agents   import MORE_AGENTS
         from src.priority_agents import PRIORITY_AGENTS
+        from src.nextgen    import NEXTGEN_AGENTS
+        from src.phase7     import PHASE7_AGENTS
         combined = {}
         for d in [INTELLIGENCE_AGENTS, AIML_AGENTS, INDIA_AGENTS, DOMAIN_AGENTS,
-                  BUSINESS_AGENTS, INFRA_AGENTS, EMERGING_AGENTS, MORE_AGENTS]:
+                  BUSINESS_AGENTS, INFRA_AGENTS, EMERGING_AGENTS, MORE_AGENTS,
+                  NEXTGEN_AGENTS, PHASE7_AGENTS]:
             combined.update(d)
         # n8n from priority
         for k in ["n8n_workflow_agent"]:

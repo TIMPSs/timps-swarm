@@ -41,14 +41,17 @@ GROQ_MODEL      = os.getenv("TIMPS_GROQ_MODEL",      "llama-3.3-70b-versatile")
 _MCP_SAMPLER: Optional[callable] = None
 
 
-def set_mcp_sampler(fn: callable) -> None:
+def set_mcp_sampler(fn: callable, supports_sampling: bool = False) -> None:
     """Register the MCP sampling callback (called by server.py on initialize)."""
     global _MCP_SAMPLER
     _MCP_SAMPLER = fn
     # Also register with the provider layer
     from src.providers.mcp_sampler import set_mcp_sampler as _set
-    _set(fn)
-    logger.warning("LLMRouter: MCP sampler registered — agents will use the caller's LLM")
+    _set(fn, supports_sampling=supports_sampling)
+    if supports_sampling:
+        logger.warning("LLMRouter: MCP sampler registered — agents will use the caller's LLM")
+    else:
+        logger.warning("LLMRouter: MCP sampler registered but client does NOT support sampling — will fall through")
 
 
 def clear_mcp_sampler() -> None:
@@ -159,7 +162,8 @@ class LLMRouter:
           4. OpenAI API     — if OPENAI_API_KEY is in the environment
           5. Groq API       — if GROQ_API_KEY is in the environment
           6. TIMPS-Coder    — fine-tuned 0.5B model for bug patterns (opt-in)
-          7. Ollama         — local qwen2.5 models (fallback)
+          7. Ollama         — local qwen2.5 models (only if actually running)
+          8. NullProvider   — graceful "no LLM available" message (always available)
         """
         from src.providers import get_provider, registry
 

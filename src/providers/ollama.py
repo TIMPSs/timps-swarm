@@ -15,16 +15,21 @@ OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
 
 class OllamaProvider(ProviderInterface):
-    description = "Ollama (local, offline)"
+    description = "Ollama (local, offline — only used when actually running)"
     default_model = "qwen2.5-coder:7b"
 
     def __init__(self):
         self._reachable: Optional[bool] = None
 
     def is_available(self) -> bool:
-        # Always return True — even if Ollama is down we return an error string
-        # rather than skipping. This keeps the fallback chain intact.
-        return True
+        """Return True only if Ollama server is actually reachable."""
+        if self._reachable is None:
+            try:
+                resp = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=3)
+                self._reachable = resp.ok
+            except Exception:
+                self._reachable = False
+        return self._reachable
 
     def chat(
         self,

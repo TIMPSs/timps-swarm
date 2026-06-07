@@ -1,0 +1,38 @@
+THIRD-PARTY SOFTWARE NOTICES AND INFORMATION
+
+This project includes software developed by third parties.
+
+* npm/commander@^12.0.0  —  License: unknown
+* npm/chalk@^5.3.0  —  License: unknown
+* npm/ora@^8.0.1  —  License: unknown
+* npm/node-fetch@^3.3.2  —  License: unknown
+* npm/inquirer@^9.2.0  —  License: unknown
+* npm/react@^18.3.0  —  License: unknown
+* npm/react-dom@^18.3.0  —  License: unknown
+* npm/react-scripts@5.0.1  —  License: unknown
+* npm/recharts@^2.13.0  —  License: unknown
+* npm/lucide-react@^0.454.0  —  License: unknown
+* pypi/langgraph@0.2.60  —  License: unknown
+* pypi/langchain@0.3.25  —  License: unknown
+* pypi/langchain-core@0.3.55  —  License: unknown
+* pypi/fastapi@0.115.0  —  License: unknown
+* pypi/pydantic@2.9.0  —  License: unknown
+* pypi/python-multipart@0.0.12  —  License: unknown
+* pypi/requests@2.32.3  —  License: unknown
+* pypi/httpx@0.27.2  —  License: unknown
+* pypi/transformers@4.46.0  —  License: unknown
+* pypi/huggingface-hub@0.26.0  —  License: unknown
+* pypi/datasets@3.0.0  —  License: unknown
+* pypi/tokenizers@0.20.0  —  License: unknown
+* pypi/peft@0.13.2  —  License: unknown
+* pypi/torch@2.5.0  —  License: unknown
+* pypi/redis@5.0.1  —  License: unknown
+* pypi/pytest@8.3.0  —  License: unknown
+* pypi/bandit@1.7.10  —  License: unknown
+* pypi/black@24.10.0  —  License: unknown
+* pypi/playwright@1.49.0  —  License: unknown
+* pypi/aiohttp@3.11.0  —  License: unknown
+* pypi/psutil@6.1.0  —  License: unknown
+* pypi/python-dotenv@1.0.1  —  License: unknown
+* pypi/langchain@0.3.0  —  License: unknown
+* pypi/langchain-core@0.2.42  —  License: unknown

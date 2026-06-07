@@ -1,0 +1,334 @@
+{
+  "summary": "SBOM (cyclonedx): 45 components across 2 ecosystems; 0 vulnerabilities across 0 images.",
+  "format": "cyclonedx",
+  "component_count": 45,
+  "ecosystems": {
+    "pypi": 35,
+    "npm": 10
+  },
+  "components": [
+    {
+      "name": "langgraph",
+      "version": "0.2.60",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "langchain",
+      "version": "0.3.25",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "langchain-core",
+      "version": "0.3.55",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "fastapi",
+      "version": "0.115.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "pydantic",
+      "version": "2.9.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "python-multipart",
+      "version": "0.0.12",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "requests",
+      "version": "2.32.3",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "transformers",
+      "version": "4.46.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "huggingface-hub",
+      "version": "0.26.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "datasets",
+      "version": "3.0.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "tokenizers",
+      "version": "0.20.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "peft",
+      "version": "0.13.2",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "torch",
+      "version": "2.5.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "redis",
+      "version": "5.0.1",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "pytest",
+      "version": "8.3.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "bandit",
+      "version": "1.7.10",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "black",
+      "version": "24.10.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "playwright",
+      "version": "1.49.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.11.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "psutil",
+      "version": "6.1.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.11.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "python-dotenv",
+      "version": "1.0.1",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "requirements.txt"
+    },
+    {
+      "name": "langgraph",
+      "version": "0.2.60",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "langchain",
+      "version": "0.3.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "langchain-core",
+      "version": "0.2.42",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "fastapi",
+      "version": "0.115.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "pydantic",
+      "version": "2.9.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "requests",
+      "version": "2.32.3",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "httpx",
+      "version": "0.27.2",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "psutil",
+      "version": "6.1.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "playwright",
+      "version": "1.49.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "aiohttp",
+      "version": "3.11.0",
+      "ecosystem": "pypi",
+      "scope": "runtime",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "transformers",
+      "version": "4.46.0",
+      "ecosystem": "pypi",
+      "scope": "optional",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "peft",
+      "version": "0.13.2",
+      "ecosystem": "pypi",
+      "scope": "optional",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "huggingface-hub",
+      "version": "0.26.0",
+      "ecosystem": "pypi",
+      "scope": "optional",
+      "path": "pyproject.toml"
+    },
+    {
+      "name": "commander",
+      "version": "12.0.0",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "cli/package.json"
+    },
+    {
+      "name": "chalk",
+      "version": "5.3.0",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "cli/package.json"
+    },
+    {
+      "name": "ora",
+      "version": "8.0.1",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "cli/package.json"
+    },
+    {
+      "name": "node-fetch",
+      "version": "3.3.2",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "cli/package.json"
+    },
+    {
+      "name": "inquirer",
+      "version": "9.2.0",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "cli/package.json"
+    },
+    {
+      "name": "react",
+      "version": "18.3.0",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "dashboard/package.json"
+    },
+    {
+      "name": "react-dom",
+      "version": "18.3.0",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "dashboard/package.json"
+    },
+    {
+      "name": "react-scripts",
+      "version": "5.0.1",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "dashboard/package.json"
+    },
+    {
+      "name": "recharts",
+      "version": "2.13.0",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "dashboard/package.json"
+    },
+    {
+      "name": "lucide-react",
+      "version": "0.454.0",
+      "ecosystem": "npm",
+      "scope": "runtime",
+      "path": "dashboard/package.json"
+    }
+  ],
+  "vulnerabilities": [],
+  "images_scanned": [],
+  "tools_used": [
+    "manifest-parser"
+  ],
+  "sbom_path": "generated/phase7/sbom/repo/sbom.cyclonedx.json",
+  "vuln_report_path": "generated/phase7/sbom/repo/vulnerabilities.json",
+  "generated_at": "20260606_114945"
+}

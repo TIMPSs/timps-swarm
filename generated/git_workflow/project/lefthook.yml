@@ -1,0 +1,27 @@
+pre-commit:
+  parallel: true
+  commands:
+    trailing-whitespace:
+      run: pre-commit run trailing-whitespace --all-files
+    end-of-file-fixer:
+      run: pre-commit run end-of-file-fixer --all-files
+    check-yaml:
+      run: pre-commit run check-yaml --all-files
+    check-json:
+      run: pre-commit run check-json --all-files
+    black:
+      run: pre-commit run black --all-files
+    isort:
+      run: pre-commit run isort --all-files
+    flake8:
+      run: pre-commit run flake8 --all-files
+    commitizen:
+      run: pre-commit run commitizen --all-files
+    ruff:
+      run: ruff check .
+    ruff-format:
+      run: ruff format --check .
+commit-msg:
+  commands:
+    commitlint:
+      run: npx --no-install commitlint --edit {staged_files}

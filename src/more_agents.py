@@ -41,7 +41,14 @@ def _llm(prompt: str, system: str, agent: str = "default") -> str:
         return _router.call(agent, prompt, system_prompt=system)
     except Exception as exc:
         logger.error("LLM call failed for %s: %s", agent, exc)
-        return f"# LLM error: {exc}"
+        return (
+            "[No LLM provider available — raw data follows]\n\n"
+            f"Agent `{agent}` could not reach any LLM. "
+            "The agent has gathered data below. "
+            "To enable AI analysis, connect via an MCP client that supports sampling "
+            "(e.g. Claude Code), or set an API key (GEMINI_API_KEY, ANTHROPIC_API_KEY, etc.).\n\n"
+            f"{prompt[:5000]}"
+        )
 
 
 def _strip_fences(text: str, lang: str = "") -> str:

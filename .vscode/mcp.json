@@ -3,9 +3,14 @@
     "servers": {
       "timps-swarm": {
         "type": "stdio",
-        "command": "timps-mcp",
+        "command": "npx",
+        "args": [
+          "timps-swarm",
+          "mcp"
+        ],
         "env": {
-          "OLLAMA_HOST": "http://localhost:11434"
+          "ANTHROPIC_API_KEY": "sk-ant-456",
+          "GEMINI_API_KEY": "sk-gemini-123"
         }
       }
     }

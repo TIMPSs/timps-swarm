@@ -22,8 +22,9 @@ Available providers (auto-detected from env vars)
     openai    — GPT-4o (OPENAI_API_KEY)
     gemini    — Gemini (GEMINI_API_KEY)
     groq      — Llama/Mixtral (GROQ_API_KEY)
-    ollama    — Local Ollama (always available as fallback)
+    ollama    — Local Ollama (auto-detected; skipped if not running)
     timps     — Fine-tuned TIMPS-Coder 0.5B (explicit opt-in)
+    null      — Graceful "no LLM" fallback (returns raw data)
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ from src.providers.gemini import GeminiProvider
 from src.providers.groq import GroqProvider
 from src.providers.timps import TIMPSProvider
 from src.providers.mcp_sampler import MCPSamplerProvider
+from src.providers.null import NullProvider
 
 __all__ = [
     "ProviderInterface",
@@ -49,6 +51,7 @@ __all__ = [
     "GroqProvider",
     "TIMPSProvider",
     "MCPSamplerProvider",
+    "NullProvider",
     "get_provider",
     "list_providers",
     "registry",
@@ -76,6 +79,7 @@ class _ProviderRegistry:
             "groq":      GroqProvider,
             "ollama":    OllamaProvider,
             "timps":     TIMPSProvider,
+            "null":      NullProvider,
         }
         cls = mapping.get(name)
         return cls() if cls else None
@@ -99,7 +103,7 @@ def get_provider(name: Optional[str] = None) -> ProviderInterface:
 
     If *name* is given, return that specific provider (raises ValueError if unknown).
     Otherwise, walk the priority chain and return the first available one.
-    Ollama is always last in the chain and is always available as fallback.
+    NullProvider is the final fallback — returns a graceful "no LLM" message.
     """
     if name:
         p = registry.get(name)
@@ -112,8 +116,8 @@ def get_provider(name: Optional[str] = None) -> ProviderInterface:
         if p and p.is_available():
             return p
 
-    # Hard fallback — Ollama
-    return registry.get("ollama")
+    # Hard fallback — NullProvider (graceful "no LLM available" message)
+    return registry.get("null")
 
 
 def list_providers() -> list[dict]:

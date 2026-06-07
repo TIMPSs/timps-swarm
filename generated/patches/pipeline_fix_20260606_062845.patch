@@ -1,0 +1,10 @@
+--- a/.github/workflows/timps-swarm.yml
++++ b/.github/workflows/timps-swarm.yml
+@@ -59,4 +59,4 @@
+   swarm:
+     runs-on: ubuntu-latest
+     outputs:
+-      run_id: ${{ steps.run.outputs.run_id }}
+-      status: ${{ steps.wait.outpu
++      run_id: ${{ steps.run.outputs.run_id }}
++      status: ${{ steps.wait.outputs.status }}

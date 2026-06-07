@@ -1,0 +1,58 @@
+{
+  "summary": "Web search for 'opencode CLI commands': 3 results from duckduckgo=ok (3); no LLM synthesis.",
+  "query": "opencode CLI commands",
+  "refined_queries": [],
+  "engines_used": [
+    "duckduckgo"
+  ],
+  "engine_status": {
+    "duckduckgo": "ok (3)"
+  },
+  "recency": "any",
+  "content_type": "general",
+  "locale": "en-US",
+  "max_results": 3,
+  "raw_count": 3,
+  "deduped_count": 3,
+  "fetched_count": 0,
+  "results": [
+    {
+      "title": "CLI | OpenCode",
+      "url": "https://opencode.ai/docs/cli/",
+      "snippet": "CLI OpenCode CLI options and commands . The OpenCode CLI by default starts the TUI when run without any arguments. ... But it also accepts commands as documented on this page. This allows you to interact with OpenCode programmatically.",
+      "source_engine": "duckduckgo",
+      "position": 1,
+      "engine_priority": 1,
+      "content_type": "general",
+      "content": "",
+      "fetched_at": null
+    },
+    {
+      "title": "OpenCode CLI Cheat Sheet - Commands Reference | ComputingForGeeks",
+      "url": "https://computingforgeeks.com/opencode-cli-cheat-sheet/",
+      "snippet": "OpenCode CLI cheat sheet covering every command , flag, slash command , keyboard shortcut, custom commands , MCP, agents, permissions, and config tested with real outputs.",
+      "source_engine": "duckduckgo",
+      "position": 2,
+      "engine_priority": 1,
+      "content_type": "general",
+      "content": "",
+      "fetched_at": null
+    },
+    {
+      "title": "OpenCode CLI: Run Prompts, Agents, Sessions, and Automation - OpenCode Docs",
+      "url": "https://open-code.ai/en/docs/cli",
+      "snippet": "Use OpenCode from terminal and scripts: run prompts, manage auth, switch models, control sessions, start server/web mode, and automate workflows.",
+      "source_engine": "duckduckgo",
+      "position": 3,
+      "engine_priority": 1,
+      "content_type": "general",
+      "content": "",
+      "fetched_at": null
+    }
+  ],
+  "answer": "",
+  "citations": [],
+  "llm_used": false,
+  "log_dir": "generated/web_search/20260606T064041Z_opencode_cli_commands",
+  "generated_at": "20260606_064043"
+}
