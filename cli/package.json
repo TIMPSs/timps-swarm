@@ -1,6 +1,6 @@
 {
   "name": "timps-swarm",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "TIMPS Swarm — 64+ AI agents for code generation, computer health, AI/ML, infra, India-stack, and more. One command to rule them all.",
   "keywords": [
     "ai",
@@ -27,6 +27,7 @@
     "timps-swarm": "bin/timps-swarm.js"
   },
   "scripts": {
+    "postinstall": "node bin/timps-swarm.js install-mcp --silent 2>/dev/null || true",
     "test": "node bin/timps-swarm.js --help"
   },
   "dependencies": {

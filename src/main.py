@@ -14,10 +14,10 @@ import os
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 import uvicorn
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -667,6 +667,66 @@ async def mcp_install(body: dict):
             results.append({"tool": cid, "status": "error", "message": str(e)})
 
     return {"results": results}
+
+
+# ── HTTP bridge to the MCP server ─────────────────────────────────────────
+# These two endpoints let a thin Node.js stdio proxy (cli/lib/mcp-proxy.js)
+# expose the full 64-tool MCP surface to Claude Code / Cursor / Codex when
+# the user has `npm install -g timps-swarm` but has not cloned the Python repo.
+# The proxy starts the FastAPI server (or points at a remote one) and forwards
+# JSON-RPC 2.0 tool calls to these endpoints. The actual tool execution lives
+# in mcp_server/server.py:_TOOL_HANDLERS — we lazy-import it here.
+
+_MCP_HANDLERS_CACHE: Optional[Dict[str, Any]] = None
+_MCP_TOOLS_CACHE: Optional[List[Dict[str, Any]]] = None
+
+
+def _get_mcp_handlers() -> Dict[str, Any]:
+    global _MCP_HANDLERS_CACHE
+    if _MCP_HANDLERS_CACHE is None:
+        from mcp_server.server import _TOOL_HANDLERS
+        _MCP_HANDLERS_CACHE = _TOOL_HANDLERS
+    return _MCP_HANDLERS_CACHE
+
+
+def _get_mcp_tools() -> List[Dict[str, Any]]:
+    global _MCP_TOOLS_CACHE
+    if _MCP_TOOLS_CACHE is None:
+        from mcp_server.server import TOOLS
+        _MCP_TOOLS_CACHE = TOOLS
+    return _MCP_TOOLS_CACHE
+
+
+@app.get("/mcp/tools")
+async def list_mcp_tools():
+    """Return the full MCP tool catalogue (name, description, inputSchema)."""
+    try:
+        return {"tools": _get_mcp_tools()}
+    except Exception as exc:
+        logger.error("Failed to load MCP tool list: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Could not load MCP tools: {exc}")
+
+
+class MCPCallRequest(BaseModel):
+    name: str
+    arguments: Optional[dict] = None
+
+
+@app.post("/mcp/tools/call")
+async def call_mcp_tool(req: MCPCallRequest):
+    """Dispatch a single MCP tool call. Mirrors the stdio dispatch in
+    mcp_server/server.py so the Node.js proxy can route any of the 64 tools
+    through one HTTP endpoint."""
+    handlers = _get_mcp_handlers()
+    handler = handlers.get(req.name)
+    if not handler:
+        raise HTTPException(status_code=404, detail=f"Unknown MCP tool: {req.name}")
+    try:
+        text = handler(req.arguments or {})
+        return {"isError": False, "content": [{"type": "text", "text": text}]}
+    except Exception as exc:
+        logger.exception("MCP tool %s failed", req.name)
+        return {"isError": True, "content": [{"type": "text", "text": f"Tool {req.name} failed: {exc}"}]}
 
 
 # ── Entrypoint ─────────────────────────────────────────────────────────────
