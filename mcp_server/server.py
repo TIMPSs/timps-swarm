@@ -1862,10 +1862,12 @@ def _handle_request(msg: Dict) -> Optional[str]:
             },
             "serverInfo": {
                 "name": "timps-swarm",
-                "version": "2.0.0",
+                "version": "2.2.0",
                 "description": (
-                    "TIMPS Swarm: 51 AI agents — SDLC, computer health, developer "
-                    "workflow, and knowledge worker tools."
+                    "TIMPS Swarm: 160 AI specialists across SDLC, computer health, "
+                    "developer workflow, knowledge worker, priority, expert diagnostics, "
+                    "context, kernel, and meta categories. Callable as MCP tools and as "
+                    "native Claude Code / Cursor / Codex sub-agents."
                 ),
             },
         })

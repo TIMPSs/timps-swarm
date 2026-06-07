@@ -153,8 +153,8 @@ const program = new Command();
 
 program
   .name("timps-swarm")
-  .description("TIMPS Swarm — 56 AI agents at your fingertips")
-  .version("2.1.0");
+  .description("TIMPS Swarm — 160 AI specialists (code, security, DevOps, AI/ML, infra, India-stack, health, research, content, voice, robotics) as parallel sub-agents and MCP tools")
+  .version("2.2.0");
 
 // ── fix ───────────────────────────────────────────────────────────────────────
 program
