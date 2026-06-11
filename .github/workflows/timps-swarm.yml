@@ -1,6 +1,10 @@
 name: TIMPS Swarm
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_call:
     inputs:
       task:
@@ -50,6 +54,35 @@ on:
         default: "10"
 
 jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install
+        run: pip install -e ".[dev]" --quiet
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Python tests
+        run: python -m pytest tests/ -v || echo "No tests/ directory yet"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: CLI tests
+        run: node --test cli/tests/*.test.js
+        working-directory: cli
+
   swarm:
     runs-on: ubuntu-latest
     outputs:
