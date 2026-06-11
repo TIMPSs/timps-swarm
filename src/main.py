@@ -13,13 +13,15 @@ import logging
 import os
 import time
 import uuid
+from collections import OrderedDict
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional, Dict, Any, List
 
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Lazy import to avoid graph build at import time in tests
 _graph = None
@@ -30,12 +32,18 @@ logging.basicConfig(
 )
 logger = logging.getLogger("timps.main")
 
-app = FastAPI(title="TIMPS Swarm API", version="1.0.0")
+_PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
+try:
+    _APP_VERSION = [l.split("=")[1].strip().strip('"') for l in _PYPROJECT.read_text().splitlines() if l.startswith("version")][0]
+except Exception:
+    _APP_VERSION = "2.2.0"
+
+app = FastAPI(title="TIMPS Swarm API", version=_APP_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -44,7 +52,7 @@ app.add_middleware(
 
 _REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 _redis_client = None
-_runs_fallback: dict[str, dict] = {}   # used only when Redis is down
+_runs_fallback: OrderedDict[str, dict] = OrderedDict()   # used only when Redis is down
 
 
 def _get_redis():
@@ -63,6 +71,9 @@ def _get_redis():
     return _redis_client
 
 
+_RUNS_FALLBACK_MAX = 1000
+
+
 def _runs_set(run_id: str, data: dict):
     r = _get_redis()
     if r:
@@ -73,6 +84,8 @@ def _runs_set(run_id: str, data: dict):
         except Exception as exc:
             logger.warning("Redis write failed: %s", exc)
     _runs_fallback[run_id] = data
+    if len(_runs_fallback) > _RUNS_FALLBACK_MAX:
+        _runs_fallback.popitem(last=False)
 
 
 def _runs_get(run_id: str) -> Optional[dict]:
@@ -136,23 +149,41 @@ async def _broadcast(message: dict):
         _active_websockets.remove(ws)
 
 
-def _build_dashboard_payload(run_id: str, state: dict) -> dict:
-    """Convert swarm state into dashboard-friendly format."""
-    tasks = state.get("tasks", [])
-
-    agent_names = [
+def _discover_agent_names() -> list[str]:
+    """Dynamically discover agent names from MCP tool registry."""
+    try:
+        from mcp_server.server import TOOLS
+        names = set()
+        for t in TOOLS:
+            name = t.get("name", "")
+            if name.startswith("timps_"):
+                names.add(name.replace("timps_", "", 1))
+        if names:
+            return sorted(names)
+    except Exception:
+        pass
+    return [
         "orchestrator", "product_manager", "architect", "code_generator",
         "code_reviewer", "qa_tester", "security_auditor", "performance_optimizer",
         "documentation_writer", "devops",
     ]
 
-    agent_colors = {
-        "orchestrator": "#6366f1", "product_manager": "#8b5cf6",
-        "architect": "#06b6d4", "code_generator": "#10b981",
-        "code_reviewer": "#f59e0b", "qa_tester": "#ec4899",
-        "security_auditor": "#ef4444", "performance_optimizer": "#f97316",
-        "documentation_writer": "#84cc16", "devops": "#64748b",
-    }
+
+_AGENT_COLORS_CACHE: dict[str, str] = {}
+
+
+def _agent_color(name: str) -> str:
+    if name not in _AGENT_COLORS_CACHE:
+        import hashlib
+        h = hashlib.sha256(name.encode()).hexdigest()[:6]
+        _AGENT_COLORS_CACHE[name] = f"#{h}"
+    return _AGENT_COLORS_CACHE[name]
+
+
+def _build_dashboard_payload(run_id: str, state: dict) -> dict:
+    """Convert swarm state into dashboard-friendly format."""
+    tasks = state.get("tasks", [])
+    agent_names = _discover_agent_names()
 
     agents = []
     for i, name in enumerate(agent_names):
@@ -165,12 +196,12 @@ def _build_dashboard_payload(run_id: str, state: dict) -> dict:
             "name": name,
             "role": name,
             "status": "running" if running else ("completed" if completed else "pending"),
-            "current_task": running[0]["description"][:60] if running else None,
+            "current_task": running[0].get("description", "")[:60] if running else None,
             "adapter_loaded": "base",
             "latency_ms": 0,
             "tokens_generated": 0,
             "last_active": datetime.now(timezone.utc).isoformat(),
-            "color": agent_colors.get(name, "#94a3b8"),
+            "color": _agent_color(name),
         })
 
     completed_count = len([t for t in tasks if t["status"] == "completed"])
@@ -295,7 +326,7 @@ async def health():
 
 @app.post("/swarm/run", response_model=SwarmResponse)
 async def run_swarm(request: SwarmRequest, background_tasks: BackgroundTasks):
-    run_id = str(uuid.uuid4())[:8]
+    run_id = uuid.uuid4().hex[:16]
     background_tasks.add_task(
         _run_swarm_async,
         run_id,
@@ -452,7 +483,7 @@ class RefactoringRequest(BaseModel):
 
 
 class TestDataRequest(BaseModel):
-    schema_desc: str
+    schema: str = Field(..., alias="schema_desc")
     count: Optional[int] = 20
     format: Optional[str] = "json"
     locale: Optional[str] = "en_US"
@@ -503,7 +534,7 @@ async def agent_refactor(req: RefactoringRequest):
 @app.post("/agents/test-data")
 async def agent_test_data(req: TestDataRequest):
     from src.more_agents import test_data_agent
-    return test_data_agent({"schema": req.schema_desc, "count": req.count,
+    return test_data_agent({"schema": req.schema, "count": req.count,
                             "format": req.format, "locale": req.locale})
 
 
@@ -631,6 +662,7 @@ async def mcp_install(body: dict):
 
 _MCP_HANDLERS_CACHE: Optional[Dict[str, Any]] = None
 _MCP_TOOLS_CACHE: Optional[List[Dict[str, Any]]] = None
+_MCP_SEMAPHORE = asyncio.Semaphore(4)
 
 
 def _get_mcp_handlers() -> Dict[str, Any]:
@@ -674,11 +706,23 @@ async def call_mcp_tool(req: MCPCallRequest):
     if not handler:
         raise HTTPException(status_code=404, detail=f"Unknown MCP tool: {req.name}")
     try:
-        text = handler(req.arguments or {})
+        text = await asyncio.wait_for(
+            _run_mcp_handler(handler, req.arguments or {}),
+            timeout=300.0,
+        )
         return {"isError": False, "content": [{"type": "text", "text": text}]}
+    except asyncio.TimeoutError:
+        logger.warning("MCP tool %s timed out", req.name)
+        return {"isError": True, "content": [{"type": "text", "text": f"Tool {req.name} timed out after 300s"}]}
     except Exception as exc:
         logger.exception("MCP tool %s failed", req.name)
         return {"isError": True, "content": [{"type": "text", "text": f"Tool {req.name} failed: {exc}"}]}
+
+
+async def _run_mcp_handler(handler, args: dict) -> str:
+    """Run an MCP handler with concurrency control, off the event loop."""
+    async with _MCP_SEMAPHORE:
+        return await asyncio.to_thread(handler, args)
 
 
 # ── Entrypoint ─────────────────────────────────────────────────────────────

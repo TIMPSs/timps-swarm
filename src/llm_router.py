@@ -13,27 +13,13 @@ Priority (highest → lowest):
   6. TIMPS-Coder      — fine-tuned 0.5B HuggingFace model for bug patterns
   7. Ollama           — local qwen2.5 models (fallback)
 """
-import os
 import logging
-import requests
+import os
 from typing import Optional
 
+from src.providers.base import ProviderError
+
 logger = logging.getLogger(__name__)
-
-OLLAMA_HOST     = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-TIMPS_MODEL_PATH = os.getenv("TIMPS_MODEL_PATH", "sandeeprdy1729/TIMPS-Coder-0.5B")
-
-# ── Cloud API keys (auto-detected from environment) ─────────────────────────
-GEMINI_API_KEY    = os.getenv("GEMINI_API_KEY", "")
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-OPENAI_API_KEY    = os.getenv("OPENAI_API_KEY", "")
-GROQ_API_KEY      = os.getenv("GROQ_API_KEY", "")
-
-# Gemini model used for agent calls (1.5-flash has the most generous free-tier quota)
-GEMINI_MODEL    = os.getenv("TIMPS_GEMINI_MODEL",    "gemini-2.5-flash")
-ANTHROPIC_MODEL = os.getenv("TIMPS_ANTHROPIC_MODEL", "claude-3-5-haiku-20241022")
-OPENAI_MODEL    = os.getenv("TIMPS_OPENAI_MODEL",    "gpt-4o-mini")
-GROQ_MODEL      = os.getenv("TIMPS_GROQ_MODEL",      "llama-3.3-70b-versatile")
 
 # ── MCP Sampling callback ────────────────────────────────────────────────────
 # When an MCP client is connected, the server registers a callable here.
@@ -140,11 +126,6 @@ AGENT_MODEL_MAP = {
 
 
 class LLMRouter:
-    def __init__(self):
-        self._timps_loaded = False
-        self._timps_model = None
-        self._timps_tokenizer = None
-
     def call(
         self,
         agent_name: str,
@@ -177,189 +158,19 @@ class LLMRouter:
 
         # For Ollama we pass the agent-specific model; other providers use their defaults
         from src.providers.ollama import OllamaProvider
-        if isinstance(provider, OllamaProvider):
+        try:
+            if isinstance(provider, OllamaProvider):
+                return provider.chat(
+                    prompt, system_prompt,
+                    model=model, temperature=temperature, format_json=format_json,
+                )
             return provider.chat(
                 prompt, system_prompt,
-                model=model, temperature=temperature, format_json=format_json,
+                temperature=temperature, max_tokens=8192, format_json=format_json,
             )
-
-        return provider.chat(
-            prompt, system_prompt,
-            temperature=temperature, max_tokens=8192, format_json=format_json,
-        )
-
-    # ── Gemini (Google AI) ───────────────────────────────────────────────────
-    def _call_gemini(self, system: str, prompt: str) -> Optional[str]:
-        """Call Google Gemini via REST API — no SDK dependency required."""
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{GEMINI_MODEL}:generateContent?key={GEMINI_API_KEY}"
-        )
-        payload = {
-            "system_instruction": {"parts": [{"text": system or "You are a helpful AI assistant."}]},
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 8192},
-        }
-        try:
-            resp = requests.post(url, json=payload, timeout=60)
-            if resp.status_code == 429:
-                import time
-                logger.warning("Gemini rate-limited — waiting 10 s then retrying")
-                time.sleep(10)
-                resp = requests.post(url, json=payload, timeout=60)
-            resp.raise_for_status()
-            data = resp.json()
-            return (
-                data.get("candidates", [{}])[0]
-                    .get("content", {})
-                    .get("parts", [{}])[0]
-                    .get("text", "")
-            )
-        except Exception as exc:
-            logger.warning("Gemini call failed: %s — falling through", exc)
-            return None
-
-    # ── Anthropic (Claude) ───────────────────────────────────────────────────
-    def _call_anthropic(self, system: str, prompt: str) -> Optional[str]:
-        """Call Anthropic Messages API — no SDK dependency required."""
-        try:
-            resp = requests.post(
-                "https://api.anthropic.com/v1/messages",
-                headers={
-                    "x-api-key": ANTHROPIC_API_KEY,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-                json={
-                    "model": ANTHROPIC_MODEL,
-                    "max_tokens": 8192,
-                    "system": system or "You are a helpful AI assistant.",
-                    "messages": [{"role": "user", "content": prompt}],
-                },
-                timeout=60,
-            )
-            resp.raise_for_status()
-            return resp.json().get("content", [{}])[0].get("text", "")
-        except Exception as exc:
-            logger.warning("Anthropic call failed: %s — falling through", exc)
-            return None
-
-    # ── OpenAI ───────────────────────────────────────────────────────────────
-    def _call_openai(self, system: str, prompt: str) -> Optional[str]:
-        """Call OpenAI Chat Completions API — no SDK dependency required."""
-        try:
-            resp = requests.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {OPENAI_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": OPENAI_MODEL,
-                    "messages": [
-                        {"role": "system", "content": system or "You are a helpful AI assistant."},
-                        {"role": "user", "content": prompt},
-                    ],
-                    "max_tokens": 8192,
-                    "temperature": 0.3,
-                },
-                timeout=60,
-            )
-            resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"]
-        except Exception as exc:
-            logger.warning("OpenAI call failed: %s — falling through", exc)
-            return None
-
-    # ── Ollama ────────────────────────────────────────────────────────
-    def _call_ollama(
-        self,
-        model: str,
-        system: str,
-        prompt: str,
-        temperature: float = 0.3,
-        format_json: bool = False,
-    ) -> str:
-        payload: dict = {
-            "model": model,
-            "messages": [
-                {"role": "system", "content": system or "You are a helpful AI assistant."},
-                {"role": "user", "content": prompt},
-            ],
-            "options": {"temperature": temperature},
-            "stream": False,
-        }
-        if format_json:
-            payload["format"] = "json"
-
-        try:
-            resp = requests.post(f"{OLLAMA_HOST}/api/chat", json=payload, timeout=120)
-            if resp.status_code == 404 and model != "qwen2.5-coder:7b":
-                # Requested model not installed — retry with the known-available model
-                logger.warning("Ollama model %s not found — retrying with qwen2.5-coder:7b", model)
-                payload["model"] = "qwen2.5-coder:7b"
-                resp = requests.post(f"{OLLAMA_HOST}/api/chat", json=payload, timeout=120)
-            resp.raise_for_status()
-            data = resp.json()
-            return data.get("message", {}).get("content", "")
-        except Exception as exc:
-            logger.error("Ollama call failed for model %s: %s", model, exc)
-            return f"[ERROR] Ollama call failed: {exc}"
-
-    # ── TIMPS-Coder (HuggingFace transformers / MLX) ─────────────────
-    def _call_timps(self, prompt: str, system: str) -> str:
-        if not self._timps_loaded:
-            self._load_timps()
-
-        if self._timps_model is None:
-            # Fall back to Ollama coder
-            logger.warning("TIMPS model not loaded — falling back to qwen2.5-coder:7b")
-            return self._call_ollama("qwen2.5-coder:7b", system, prompt, 0.1)
-
-        messages = [
-            {"role": "system", "content": system or "You are TIMPS-Coder. Explain the bug cause then show the fixed code."},
-            {"role": "user", "content": prompt},
-        ]
-        try:
-            import torch
-            text = self._timps_tokenizer.apply_chat_template(
-                messages, tokenize=False, add_generation_prompt=True
-            )
-            inputs = self._timps_tokenizer(text, return_tensors="pt").to(
-                self._timps_model.device
-            )
-            outputs = self._timps_model.generate(
-                **inputs,
-                max_new_tokens=1024,
-                temperature=0.1,
-                do_sample=True,
-                pad_token_id=self._timps_tokenizer.eos_token_id,
-            )
-            return self._timps_tokenizer.decode(outputs[0], skip_special_tokens=True)
-        except Exception as exc:
-            logger.error("TIMPS generation failed: %s", exc)
-            return self._call_ollama("qwen2.5-coder:7b", system, prompt, 0.1)
-
-    def _load_timps(self):
-        """Lazy-load TIMPS-Coder model."""
-        self._timps_loaded = True
-        try:
-            from transformers import AutoModelForCausalLM, AutoTokenizer
-            import torch
-
-            logger.info("Loading TIMPS-Coder from %s …", TIMPS_MODEL_PATH)
-            self._timps_tokenizer = AutoTokenizer.from_pretrained(TIMPS_MODEL_PATH)
-            self._timps_model = AutoModelForCausalLM.from_pretrained(
-                TIMPS_MODEL_PATH,
-                torch_dtype=torch.float16,
-                device_map="auto",
-            )
-            logger.info("TIMPS-Coder loaded ✓")
-        except Exception as exc:
-            logger.warning("Could not load TIMPS-Coder: %s — using Ollama fallback", exc)
-            self._timps_model = None
-            self._timps_tokenizer = None
-
+        except ProviderError as exc:
+            logger.warning("Provider error for %s: %s", agent_name, exc)
+            return f"[No LLM provider available — {exc}]"
 
 # Singleton
 _router: Optional[LLMRouter] = None

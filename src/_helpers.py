@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -53,8 +54,9 @@ def _save(sub: str, name: str, content: str) -> str:
 
 def _run(cmd: str, cwd: Optional[str] = None, timeout: int = 60) -> str:
     try:
+        args = shlex.split(cmd)
         r = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
+            args, capture_output=True, text=True,
             timeout=timeout, cwd=cwd or os.getcwd()
         )
         return (r.stdout + r.stderr).strip()

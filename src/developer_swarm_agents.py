@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import re
+import shlex
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -59,8 +60,9 @@ def _save(subdir: str, filename: str, content: str) -> str:
 def _run(cmd: str, cwd: Optional[str] = None) -> str:
     """Run a shell command and return combined stdout+stderr."""
     try:
+        args = shlex.split(cmd)
         result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
+            args, capture_output=True, text=True,
             timeout=60, cwd=cwd or os.getcwd()
         )
         return (result.stdout + result.stderr).strip()

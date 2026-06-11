@@ -7,6 +7,7 @@ get something back that they can display as raw data.
 """
 from __future__ import annotations
 
+import os
 from typing import Optional
 
 from src.providers.base import ProviderInterface
@@ -33,13 +34,22 @@ class NullProvider(ProviderInterface):
         max_tokens: int = 8192,
         format_json: bool = False,
     ) -> str:
+        tried = []
+        if not os.getenv("GEMINI_API_KEY"):
+            tried.append("- Gemini: GEMINI_API_KEY not set")
+        if not os.getenv("ANTHROPIC_API_KEY"):
+            tried.append("- Anthropic: ANTHROPIC_API_KEY not set")
+        if not os.getenv("OPENAI_API_KEY"):
+            tried.append("- OpenAI: OPENAI_API_KEY not set")
+        if not os.getenv("GROQ_API_KEY"):
+            tried.append("- Groq: GROQ_API_KEY not set")
+        tried.append("- Ollama: not running or unreachable")
+        tried.append("- TIMPS-Coder: model not loaded")
+
         return (
             "[No LLM provider available — falling back to raw data]\n\n"
             "None of the configured LLM providers are reachable:\n"
-            "- MCP Sampling: client does not support sampling\n"
-            "- Gemini / Anthropic / OpenAI / Groq: no API key set\n"
-            "- Ollama: not installed or not running\n"
-            "- TIMPS-Coder: model not loaded\n\n"
+            + "\n".join(tried) + "\n\n"
             "The agent has gathered system data / scanned files below. "
             "To enable AI-powered analysis, either:\n"
             "1. Use an MCP client that supports sampling (e.g. Claude Code)\n"

@@ -116,7 +116,7 @@ extensions:
   - name: timps-swarm
     type: stdio
     cmd: {bin}
-    description: "TIMPS Swarm — 51 specialist AI agents"
+    description: "TIMPS Swarm — 160+ specialist AI agents"
     enabled: true""",
 
     # ── Gemini CLI ~/.gemini/settings.json ───────────────────────────────────
@@ -476,21 +476,31 @@ def cmd_info(args: argparse.Namespace) -> None:
     print(f"  {'Protocol':<14}{cyan('MCP JSON-RPC 2.0 over stdio')}")
     print(f"  {'Transport':<14}{cyan('stdio (compatible with all MCP clients)')}")
 
-    # Agents
+    # Agents — dynamically count from MCP tool registry when possible
     print(f"\n  {bold('Agent Counts')}")
-    categories = [
-        ("SDLC pipeline",     10),
-        ("Computer health",   12),
-        ("Developer swarm",   12),
-        ("Knowledge workers", 10),
-        ("Expert/diagnostic", 12),
-        ("Connector tools",    2),
-    ]
-    total = sum(n for _, n in categories)
-    for name, n in categories:
-        bar = "█" * (n // 2)
-        print(f"    {name:<24}  {cyan(str(n)):>3}  {dim(bar)}")
-    print(f"    {'Total':<24}  {bold(cyan(str(total)))}")
+    try:
+        import requests as req
+        mcp_resp = req.get("http://localhost:8000/mcp/tools", timeout=2)
+        if mcp_resp.ok:
+            mcp_tools = mcp_resp.json().get("tools", [])
+            total = len(mcp_tools)
+            print(f"    {'MCP tools registered':<24}  {bold(cyan(str(total)))}")
+        else:
+            raise Exception("non-ok")
+    except Exception:
+        categories = [
+            ("SDLC pipeline",     10),
+            ("Computer health",   12),
+            ("Developer swarm",   12),
+            ("Knowledge workers", 10),
+            ("Expert/diagnostic", 12),
+            ("Connector tools",    2),
+        ]
+        total = sum(n for _, n in categories)
+        for name, n in categories:
+            bar = "█" * (n // 2)
+            print(f"    {name:<24}  {cyan(str(n)):>3}  {dim(bar)}")
+        print(f"    {'Total':<24}  {bold(cyan(str(total)))}")
 
     # LLM backend
     print(f"\n  {bold('LLM Backend')}  (priority order)")
@@ -549,7 +559,10 @@ def cmd_run(args: argparse.Namespace) -> None:
     try:
         from src.developer_swarm_agents import DEVELOPER_AGENTS
         from src.knowledge_swarm_agents import KNOWLEDGE_AGENTS
-        all_agents = {**DEVELOPER_AGENTS, **KNOWLEDGE_AGENTS}
+        from src.priority_agents import PRIORITY_AGENTS
+        from src.more_agents import MORE_AGENTS
+        from src.intelligence_agents import INTELLIGENCE_AGENTS
+        all_agents = {**DEVELOPER_AGENTS, **KNOWLEDGE_AGENTS, **PRIORITY_AGENTS, **MORE_AGENTS, **INTELLIGENCE_AGENTS}
 
         if agent_key in all_agents:
             fn = all_agents[agent_key]
@@ -622,7 +635,7 @@ def cmd_install(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="timps",
-        description="TIMPS Swarm — 51 specialist AI agents, plug into any coding tool",
+        description="TIMPS Swarm — 160+ specialist AI agents, plug into any coding tool",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 examples:

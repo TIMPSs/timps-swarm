@@ -468,7 +468,7 @@ def delegate(
     Returns a dict with:
       run_id, status, final_report, artifacts, tasks (with results)
     """
-    run_id = str(uuid.uuid4())[:8]
+    run_id = uuid.uuid4().hex[:16]
     ctx = context or {}
     board = Blackboard(run_id)
 

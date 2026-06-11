@@ -299,9 +299,9 @@ class TerminalTool:
         env.pop("VIRTUAL_ENV", None)
 
         try:
+            args = shlex.split(command)
             result = subprocess.run(
-                command,
-                shell=True,
+                args,
                 cwd=self.working_dir,
                 capture_output=True,
                 text=True,

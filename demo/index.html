@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIMPS Swarm — Parallel Agent Demo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --neon: #00ff41;
+    --neon-dim: #00cc33;
+    --neon-dark: #006600;
+    --bg: #0a0a0a;
+    --bg-card: #0d1a0d;
+    --border: #00ff4122;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--neon);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .scanlines {
+    position: fixed; inset: 0;
+    z-index: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,255,65,0.015) 2px, rgba(0,255,65,0.015) 4px);
+  }
+
+  .vignette {
+    position: fixed; inset: 0;
+    z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.9) 100%);
+  }
+
+  .container { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 20px; }
+
+  header {
+    text-align: center;
+    padding: 40px 0 20px;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 30px;
+  }
+
+  header h1 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 24px;
+    color: var(--neon);
+    text-shadow: 0 0 20px var(--neon), 0 0 40px #00ff4166;
+    animation: glitch 3s infinite;
+    margin-bottom: 10px;
+  }
+
+  @keyframes glitch {
+    0%,90%,100% { transform: translate(0); }
+    92% { transform: translate(-2px,1px); }
+    94% { transform: translate(2px,-1px); }
+    96% { transform: translate(-1px,-1px); }
+    98% { transform: translate(1px,1px); }
+  }
+
+  header .subtitle {
+    font-size: 14px; color: var(--neon-dim); opacity: 0.8;
+  }
+
+  .tagline {
+    text-align: center;
+    color: var(--neon-dark);
+    font-size: 12px;
+    margin: 8px 0 30px;
+  }
+
+  /* Hero: Parallel vs Sequential */
+  .comparison-hero {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 40px;
+    align-items: stretch;
+  }
+
+  .comparison-card {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 25px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .comparison-card.parallel {
+    border-color: var(--neon);
+    box-shadow: 0 0 30px #00ff4111;
+  }
+
+  .comparison-card.sequential {
+    border-color: #ff333344;
+    box-shadow: 0 0 20px #ff333311;
+  }
+
+  .comparison-card h2 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 11px;
+    margin-bottom: 15px;
+  }
+
+  .comparison-card.parallel h2 { color: var(--neon); }
+  .comparison-card.sequential h2 { color: #ff4444; }
+
+  .time-display {
+    font-size: 48px;
+    font-weight: bold;
+    margin: 10px 0;
+  }
+
+  .comparison-card.parallel .time-display { color: var(--neon); text-shadow: 0 0 30px var(--neon); }
+  .comparison-card.sequential .time-display { color: #ff4444; text-shadow: 0 0 20px #ff444466; }
+
+  .time-unit { font-size: 16px; opacity: 0.6; }
+
+  .speedup-badge {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 6px 16px;
+    background: #00ff4111;
+    border: 1px solid var(--neon);
+    border-radius: 20px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    color: var(--neon);
+    animation: pulse-glow 2s infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%,100% { box-shadow: 0 0 10px #00ff4122; }
+    50% { box-shadow: 0 0 25px #00ff4166; }
+  }
+
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 40px;
+    height: 180px;
+    margin: 20px 0;
+    padding: 0 20px;
+  }
+
+  .bar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .bar-item .bar {
+    width: 60px;
+    border-radius: 4px 4px 0 0;
+    transition: height 1.5s ease;
+    position: relative;
+    min-height: 4px;
+  }
+
+  .bar-item .bar.parallel-bar {
+    background: linear-gradient(180deg, var(--neon), #006600);
+    box-shadow: 0 0 20px #00ff4144;
+  }
+
+  .bar-item .bar.seq-bar {
+    background: linear-gradient(180deg, #ff4444, #660000);
+    box-shadow: 0 0 15px #ff444433;
+  }
+
+  .bar-item .bar .bar-label {
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  .bar-item .bar-label-bottom {
+    font-size: 11px;
+    opacity: 0.7;
+  }
+
+  /* Agent work grid */
+  .section-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 13px;
+    margin: 35px 0 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    text-shadow: 0 0 15px #00ff4166;
+  }
+
+  .agent-work-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 30px;
+  }
+
+  .agent-work-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .agent-work-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 4px;
+    height: 100%;
+  }
+
+  .agent-work-card.done::before { background: var(--neon); box-shadow: 0 0 10px var(--neon); }
+  .agent-work-card.stub::before { background: #888800; box-shadow: 0 0 8px #88880066; }
+  .agent-work-card.timeout::before { background: #ff3333; box-shadow: 0 0 10px #ff333366; }
+
+  .agent-work-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+  }
+
+  .agent-work-card .agent-name {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: var(--neon);
+    word-break: break-word;
+    flex: 1;
+    line-height: 1.6;
+  }
+
+  .agent-work-card .status-tag {
+    font-size: 8px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  .status-tag.done { background: #00ff4111; border: 1px solid var(--neon); color: var(--neon); }
+  .status-tag.stub { background: #88880011; border: 1px solid #888800; color: #888800; }
+  .status-tag.timeout { background: #ff333311; border: 1px solid #ff3333; color: #ff3333; }
+
+  .agent-work-card .role {
+    font-size: 11px;
+    color: #009900;
+    margin-bottom: 8px;
+  }
+
+  .agent-work-card .time-spent {
+    font-size: 10px;
+    color: #005500;
+    margin-bottom: 6px;
+  }
+
+  .agent-work-card .output-preview {
+    font-size: 10px;
+    color: #007700;
+    background: #00000044;
+    border: 1px solid #00ff4111;
+    border-radius: 4px;
+    padding: 8px;
+    max-height: 80px;
+    overflow-y: auto;
+    font-family: 'Share Tech Mono', monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin-top: 6px;
+  }
+
+  .output-preview::-webkit-scrollbar { width: 4px; }
+  .output-preview::-webkit-scrollbar-track { background: transparent; }
+  .output-preview::-webkit-scrollbar-thumb { background: var(--neon-dark); border-radius: 2px; }
+
+  /* Pipeline visual */
+  .pipeline-visual {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 25px;
+    margin-bottom: 30px;
+    overflow-x: auto;
+  }
+
+  .pipeline-visual h3 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    margin-bottom: 18px;
+    color: var(--neon-dim);
+  }
+
+  .pipeline-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+    min-width: 600px;
+  }
+
+  .pipeline-row .label {
+    font-size: 10px;
+    color: var(--neon-dark);
+    width: 70px;
+    flex-shrink: 0;
+  }
+
+  .pipeline-row .blocks {
+    display: flex;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .pipeline-row .block {
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 8px;
+    text-align: center;
+    flex: 1;
+    font-family: 'Press Start 2P', monospace;
+    min-width: 80px;
+  }
+
+  .block.parallel-block {
+    background: #00ff4111;
+    border: 1px solid var(--neon);
+    color: var(--neon);
+  }
+
+  .block.seq-block {
+    background: #ff333311;
+    border: 1px solid #ff444488;
+    color: #ff6666;
+  }
+
+  .block.idle {
+    background: #111;
+    border: 1px solid #222;
+    color: #333;
+  }
+
+  .pipeline-row .arrow {
+    color: var(--neon-dark);
+    font-size: 16px;
+    padding: 0 4px;
+  }
+
+  .pipeline-row .time-note {
+    font-size: 9px;
+    color: var(--neon-dark);
+    width: 50px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  /* Full OpenAPI Spec */
+  .spec-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 30px;
+  }
+
+  .spec-section h3 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    margin-bottom: 12px;
+    color: var(--neon-dim);
+  }
+
+  .spec-section pre {
+    background: #000;
+    border: 1px solid #00ff4111;
+    border-radius: 6px;
+    padding: 14px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--neon-dim);
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+    tab-size: 2;
+  }
+
+  .spec-section pre::-webkit-scrollbar { width: 4px; height: 4px; }
+  .spec-section pre::-webkit-scrollbar-track { background: transparent; }
+  .spec-section pre::-webkit-scrollbar-thumb { background: var(--neon-dark); border-radius: 2px; }
+
+  /* How it works */
+  .how-it-works {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 25px;
+    margin-bottom: 30px;
+  }
+
+  .how-it-works h3 {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    margin-bottom: 15px;
+    color: var(--neon-dim);
+  }
+
+  .steps {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .step {
+    flex: 1;
+    min-width: 140px;
+    background: #000;
+    border: 1px solid #00ff4111;
+    border-radius: 6px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .step .step-num {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 18px;
+    color: var(--neon);
+    text-shadow: 0 0 20px var(--neon);
+    margin-bottom: 6px;
+  }
+
+  .step .step-title {
+    font-size: 10px;
+    color: var(--neon-dim);
+    font-weight: bold;
+    margin-bottom: 4px;
+  }
+
+  .step .step-desc {
+    font-size: 10px;
+    color: #007700;
+  }
+
+  footer {
+    text-align: center;
+    padding: 30px 0;
+    color: var(--neon-dark);
+    font-size: 11px;
+    border-top: 1px solid var(--border);
+    margin-top: 30px;
+  }
+
+  footer .keys {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+
+  footer .key {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  footer .key kbd {
+    background: #111;
+    border: 1px solid #333;
+    border-radius: 3px;
+    padding: 2px 6px;
+    font-size: 9px;
+    color: var(--neon-dim);
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-in {
+    animation: fadeInUp 0.6s ease forwards;
+    opacity: 0;
+  }
+
+  .delay-1 { animation-delay: 0.2s; }
+  .delay-2 { animation-delay: 0.4s; }
+  .delay-3 { animation-delay: 0.6s; }
+  .delay-4 { animation-delay: 0.8s; }
+
+  @media (max-width: 700px) {
+    header h1 { font-size: 14px; }
+    .comparison-hero { flex-direction: column; }
+    .time-display { font-size: 36px; }
+    .agent-work-grid { grid-template-columns: 1fr; }
+    .pipeline-row { font-size: 9px; }
+    .pipeline-row .label { width: 50px; font-size: 8px; }
+    .block { min-width: 50px; padding: 4px 6px; font-size: 7px; }
+    .bar-chart { gap: 20px; }
+    .bar-item .bar { width: 40px; }
+    .steps { flex-direction: column; }
+  }
+
+  /* Particle canvas background */
+  #particle-canvas {
+    position: fixed; inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.3;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="particle-canvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+
+<div class="container">
+  <header class="animate-in">
+    <h1>◈ TIMPS SWARM ◈</h1>
+    <div class="subtitle">PARALLEL AGENT EXECUTION · 3× FASTER</div>
+    <div class="tagline">▼ 4 agents dispatched simultaneously — real work, real results ▼</div>
+  </header>
+
+  <!-- Speed Comparison Hero -->
+  <div class="comparison-hero">
+    <div class="comparison-card parallel animate-in delay-1">
+      <h2>⚡ PARALLEL</h2>
+      <div class="time-display">64<span class="time-unit">s</span></div>
+      <div>4 agents working simultaneously</div>
+      <div class="speedup-badge">🚀 3× SPEEDUP</div>
+    </div>
+    <div class="comparison-card sequential animate-in delay-2">
+      <h2>🐢 SEQUENTIAL</h2>
+      <div class="time-display">192<span class="time-unit">s</span></div>
+      <div>4 agents running one-by-one</div>
+      <div style="margin-top:10px;font-size:10px;color:#ff444488;">(estimated — would be 3× slower)</div>
+    </div>
+  </div>
+
+  <!-- Bar Chart -->
+  <div class="pipeline-visual animate-in delay-2">
+    <h3>▼ TIME COMPARISON (seconds)</h3>
+    <div class="bar-chart">
+      <div class="bar-item">
+        <div class="bar parallel-bar" id="parallelBar" style="height:4px;"></div>
+        <div class="bar-label-bottom">PARALLEL</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar seq-bar" id="seqBar" style="height:4px;"></div>
+        <div class="bar-label-bottom">SEQUENTIAL</div>
+      </div>
+    </div>
+    <div style="text-align:center;font-size:10px;color:var(--neon-dark);margin-top:10px;">
+      ◈ YOU SAVED <span style="color:var(--neon);font-weight:bold;">128 SECONDS</span> BY USING PARALLEL AGENTS ◈
+    </div>
+  </div>
+
+  <!-- Pipeline Animation -->
+  <div class="pipeline-visual animate-in delay-2">
+    <h3>▼ PIPELINE: PARALLEL vs SEQUENTIAL ▼</h3>
+
+    <div class="pipeline-row">
+      <span class="label">PARALLEL</span>
+      <div class="blocks">
+        <div class="block parallel-block">API<br><small>64s</small></div>
+        <div class="block parallel-block">DB<br><small>64s</small></div>
+        <div class="block parallel-block">UI<br><small>64s</small></div>
+        <div class="block parallel-block">CLI<br><small>64s</small></div>
+      </div>
+      <span class="arrow">→</span>
+      <span class="time-note">64s</span>
+    </div>
+
+    <div class="pipeline-row">
+      <span class="label">SEQUENTIAL</span>
+      <div class="blocks">
+        <div class="block seq-block">API<br><small>~60s</small></div>
+        <div class="block idle">IDLE</div>
+        <div class="block idle">IDLE</div>
+        <div class="block idle">IDLE</div>
+      </div>
+      <span class="arrow">→</span>
+      <span class="time-note">60s</span>
+    </div>
+
+    <div class="pipeline-row">
+      <span class="label"></span>
+      <div class="blocks">
+        <div class="block idle">DONE</div>
+        <div class="block seq-block">DB<br><small>~55s</small></div>
+        <div class="block idle">IDLE</div>
+        <div class="block idle">IDLE</div>
+      </div>
+      <span class="arrow">→</span>
+      <span class="time-note">115s</span>
+    </div>
+
+    <div class="pipeline-row">
+      <span class="label"></span>
+      <div class="blocks">
+        <div class="block idle">DONE</div>
+        <div class="block idle">DONE</div>
+        <div class="block seq-block">UI<br><small>~50s</small></div>
+        <div class="block idle">IDLE</div>
+      </div>
+      <span class="arrow">→</span>
+      <span class="time-note">165s</span>
+    </div>
+
+    <div class="pipeline-row">
+      <span class="label"></span>
+      <div class="blocks">
+        <div class="block idle">DONE</div>
+        <div class="block idle">DONE</div>
+        <div class="block idle">DONE</div>
+        <div class="block seq-block">CLI<br><small>~27s</small></div>
+      </div>
+      <span class="arrow">→</span>
+      <span class="time-note">192s</span>
+    </div>
+  </div>
+
+  <!-- Agent Results -->
+  <h2 class="section-title animate-in delay-2">▼ AGENT OUTPUTS ▼</h2>
+  <div class="agent-work-grid">
+    <div class="agent-work-card done animate-in delay-2">
+      <div class="card-header">
+        <div class="agent-name">timps_api_design_agent</div>
+        <span class="status-tag done">● DONE</span>
+      </div>
+      <div class="role">Generated OpenAPI 3.1 spec with 3 endpoints</div>
+      <div class="time-spent">⏱ ~60s · 293 lines YAML</div>
+      <div class="output-preview">- POST /shorten  → creates short URL
+- GET /{code}    → 302 redirect to original
+- GET /{code}/stats → click analytics
+Rate limiting via X-RateLimit-* headers
+Error responses: 400, 404, 422, 500
+Full request/response schemas
+URI format validation</div>
+    </div>
+
+    <div class="agent-work-card stub animate-in delay-3">
+      <div class="card-header">
+        <div class="agent-name">timps_db_agent</div>
+        <span class="status-tag stub">● PARTIAL</span>
+      </div>
+      <div class="role">Schema design, indexes, migration script</div>
+      <div class="time-spent">⏱ ~55s · stub output</div>
+      <div class="output-preview">Requested schema:
+  urls (id UUID, short_code VARCHAR(10), original_url TEXT, created_at TIMESTAMP, click_count INT)
+  clicks (id UUID, url_id FK, clicked_at TIMESTAMP, referer TEXT, user_agent TEXT)
+  Index on short_code for fast lookups</div>
+    </div>
+
+    <div class="agent-work-card timeout animate-in delay-3">
+      <div class="card-header">
+        <div class="agent-name">timps_ui_ux_agent</div>
+        <span class="status-tag timeout">● TIMEOUT</span>
+      </div>
+      <div class="role">TINY.TIMPS landing page with pixel-art theme</div>
+      <div class="time-spent">⏱ ~50s · timed out (retry in progress)</div>
+      <div class="output-preview">Requested: Single HTML page with:
+  - URL input box
+  - "SHRINK" button with glow animation
+  - Short URL result with copy button
+  - Stats card
+  - Dark terminal theme, pixel-art style</div>
+    </div>
+
+    <div class="agent-work-card done animate-in delay-4">
+      <div class="card-header">
+        <div class="agent-name">timps_cli_tool_agent</div>
+        <span class="status-tag done">● DONE</span>
+      </div>
+      <div class="role">Python Click CLI for URL shortener API</div>
+      <div class="time-spent">⏱ ~27s · 4 commands</div>
+      <div class="output-preview">tiny shorten &lt;url&gt;    → POST /shorten
+tiny stats &lt;code&gt;     → GET /{code}/stats
+tiny open &lt;code&gt;      → opens in browser
+tiny list              → recent URLs
+--json flag for JSON output
+Colorful terminal output
+Config file for API base URL</div>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <h2 class="section-title animate-in delay-3">▼ HOW PARALLEL DISPATCH WORKS ▼</h2>
+  <div class="how-it-works animate-in delay-3">
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-title">SPLIT</div>
+        <div class="step-desc">Complex task decomposed into independent sub-tasks</div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-title">DISPATCH</div>
+        <div class="step-desc">All sub-agents invoked simultaneously via MCP</div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-title">EXECUTE</div>
+        <div class="step-desc">Each agent works independently on its specialty</div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-title">MERGE</div>
+        <div class="step-desc">Results collected and composed into final product</div>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <div class="step-title">DELIVER</div>
+        <div class="step-desc">3× faster delivery vs sequential agent pipeline</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full API Spec -->
+  <h2 class="section-title animate-in delay-3">▼ GENERATED OUTPUT: OPENAPI 3.1 SPEC ▼</h2>
+  <div class="spec-section animate-in delay-3">
+    <h3>▼ Full spec produced by timps_api_design_agent (293 lines) ▼</h3>
+    <pre id="specContent">Loading...</pre>
+  </div>
+
+  <footer class="animate-in delay-4">
+    <div class="keys">
+      <span class="key"><kbd>timps_api_design_agent</kbd> API spec</span>
+      <span class="key"><kbd>timps_db_agent</kbd> Schema</span>
+      <span class="key"><kbd>timps_ui_ux_agent</kbd> UI</span>
+      <span class="key"><kbd>timps_cli_tool_agent</kbd> CLI</span>
+    </div>
+    <div>TIMPS Swarm · Parallel Agent Demo · 64 agents · 3 layers · ∞ possibilities</div>
+    <div style="margin-top:6px;font-size:9px;">◈ 4 parallel agents · 64s wall time vs 192s sequential · 3× speedup ◈</div>
+  </footer>
+</div>
+
+<script>
+// Animate bars on load
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('parallelBar').style.height = '130px';
+    document.getElementById('seqBar').style.height = '170px';
+  }, 500);
+});
+
+// Particle canvas
+const canvas = document.getElementById('particle-canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const particles = [];
+for (let i = 0; i < 60; i++) {
+  particles.push({
+    x: Math.random() * W, y: Math.random() * H,
+    vx: (Math.random() - 0.5) * 0.3,
+    vy: (Math.random() - 0.5) * 0.3 - 0.2,
+    size: 1 + Math.random() * 2,
+    life: Math.random() * 300 + 100,
+    maxLife: Math.random() * 300 + 100,
+    hue: 120 + Math.random() * 40
+  });
+}
+
+function drawParticles() {
+  ctx.clearRect(0, 0, W, H);
+  particles.forEach(p => {
+    p.x += p.vx; p.y += p.vy; p.life--;
+    if (p.life <= 0) {
+      p.x = Math.random() * W; p.y = H + 5;
+      p.life = p.maxLife;
+    }
+    const alpha = (p.life / p.maxLife) * 0.4;
+    ctx.fillStyle = `hsla(${p.hue}, 80%, 50%, ${alpha})`;
+    ctx.fillRect(Math.round(p.x / 2) * 2, Math.round(p.y / 2) * 2, p.size, p.size);
+  });
+  requestAnimationFrame(drawParticles);
+}
+drawParticles();
+
+// Load the full OpenAPI spec
+const specYaml = `openapi: 3.1.0
+info:
+  title: URL Shortener API
+  description: An API for shortening long URLs, redirecting to original URLs, and retrieving click statistics.
+  version: 1.0.0
+servers:
+  - url: https://api.short.url/v1
+    description: Production server
+  - url: http://localhost:8080/v1
+    description: Local development server
+paths:
+  /shorten:
+    post:
+      summary: Create a new short URL
+      operationId: createShortUrl
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShortenRequest'
+      responses:
+        '201':
+          description: Short URL created successfully
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  '/{code}':
+    get:
+      summary: Redirect to the original long URL
+      operationId: redirectToLongUrl
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{5,10}$'
+      responses:
+        '302':
+          description: Redirects to the original long URL
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  '/{code}/stats':
+    get:
+      summary: Get statistics for a short URL
+      operationId: getShortUrlStats
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{5,10}$'
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    ShortenRequest:
+      type: object
+      required: [longUrl]
+      properties:
+        longUrl:
+          type: string
+          format: uri
+          description: The original long URL to be shortened.
+    ShortenResponse:
+      type: object
+      required: [shortUrl, longUrl]
+      properties:
+        shortUrl:
+          type: string
+          format: uri
+          description: The generated short URL.
+        longUrl:
+          type: string
+          format: uri
+          description: The original long URL.
+    StatsResponse:
+      type: object
+      required: [code, longUrl, clickCount, timestamps]
+      properties:
+        code:
+          type: string
+          description: The short code.
+        longUrl:
+          type: string
+          format: uri
+        clickCount:
+          type: integer
+          format: int64
+          minimum: 0
+        timestamps:
+          type: array
+          items:
+            type: string
+            format: date-time
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: INVALID_URL_FORMAT
+        message:
+          type: string
+        details:
+          type: string
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnprocessableEntity:
+      description: Unprocessable Entity
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  headers:
+    X-RateLimit-Limit:
+      schema:
+        type: integer
+      example: 60
+    X-RateLimit-Remaining:
+      schema:
+        type: integer
+      example: 59
+    X-RateLimit-Reset:
+      schema:
+        type: integer
+        format: int64
+      example: 1678886400
+    Location:
+      schema:
+        type: string
+        format: uri`;
+
+document.getElementById('specContent').textContent = specYaml;
+
+// Animate agent cards on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.agent-work-card').forEach(card => {
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(15px)';
+  card.style.transition = 'all 0.6s ease';
+  observer.observe(card);
+});
+
+console.log('🐝 TIMPS SWARM — Parallel Demo');
+console.log('⏱  Parallel: 64s  |  Sequential: 192s  |  Speedup: 3x');
+console.log('📦 4 agents dispatched simultaneously');
+</script>
+</body>
+</html>

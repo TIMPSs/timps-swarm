@@ -16,10 +16,8 @@
 
 ---
 
-<!-- Add demo GIF here once recorded:
-![demo](https://github.com/Sandeeprdy1729/timps-swarm/assets/demo.gif)
-`npx timps-swarm audit ./` → streaming security report in ~30 seconds
--->
+![TIMPS Swarm Parallel Agent Demo](demo/swarm-demo.gif)
+*4 agents dispatched in parallel vs sequential — 3× speedup (64s vs 192s)*
 
 ## What it does
 

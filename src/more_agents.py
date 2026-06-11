@@ -164,6 +164,21 @@ def test_data_agent(args: dict) -> dict:
     raw = _llm(prompt, system, "test_data_agent")
     data_str = _strip_fences(raw, fmt)
 
+    if fmt == "json":
+        try:
+            records = json.loads(data_str)
+            if isinstance(records, list):
+                valid = []
+                for r in records:
+                    if isinstance(r, dict):
+                        name = str(r.get("name", r.get("Name", "")))
+                        age = r.get("age", r.get("Age", 0))
+                        stock = r.get("stock", r.get("Stock", r.get("quantity", r.get("Quantity", 0))))
+                        valid.append(r)
+                data_str = json.dumps(valid, indent=2)
+        except (json.JSONDecodeError, TypeError):
+            pass
+
     ext = {"python_dict": "py", "yaml": "yaml"}.get(fmt, fmt)
     data_path = _save("datasets", f"seed_data_{_ts()}.{ext}", data_str)
 
@@ -477,6 +492,18 @@ def self_critic_agent(args: dict) -> dict:
 
     if not content.strip():
         return {"error": "No content to critique", "score": 0, "final_output": ""}
+
+    if content.startswith("[No LLM provider available"):
+        return {
+            "error": content[:200],
+            "score": 0,
+            "verdict": "fail",
+            "strengths": [],
+            "weaknesses": ["LLM provider unavailable"],
+            "critical_issues": ["Cannot score — LLM provider error"],
+            "final_output": content,
+            "summary": f"Cannot score {agent_name} output: LLM provider unavailable.",
+        }
 
     # Critique rubrics per agent type
     rubrics = {

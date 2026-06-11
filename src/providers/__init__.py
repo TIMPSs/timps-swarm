@@ -32,7 +32,7 @@ from __future__ import annotations
 import os
 from typing import Optional
 
-from src.providers.base import ProviderInterface
+from src.providers.base import ProviderInterface, ProviderError
 from src.providers.ollama import OllamaProvider
 from src.providers.anthropic import AnthropicProvider
 from src.providers.openai import OpenAIProvider
@@ -44,6 +44,7 @@ from src.providers.null import NullProvider
 
 __all__ = [
     "ProviderInterface",
+    "ProviderError",
     "OllamaProvider",
     "AnthropicProvider",
     "OpenAIProvider",

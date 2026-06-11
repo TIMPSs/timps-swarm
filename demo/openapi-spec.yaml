@@ -1,0 +1,293 @@
+openapi: 3.1.0
+info:
+  title: URL Shortener API
+  description: An API for shortening long URLs, redirecting to original URLs, and retrieving click statistics.
+  version: 1.0.0
+servers:
+  - url: https://api.short.url/v1
+    description: Production server
+  - url: http://localhost:8080/v1
+    description: Local development server
+paths:
+  /shorten:
+    post:
+      summary: Create a new short URL
+      description: Generates a unique short code for a given long URL.
+      operationId: createShortUrl
+      requestBody:
+        description: Long URL to be shortened.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShortenRequest'
+            examples:
+              default:
+                value:
+                  longUrl: https://www.example.com/very/long/url/that/needs/shortening
+      responses:
+        '201':
+          description: Short URL created successfully.
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShortenResponse'
+              examples:
+                default:
+                  value:
+                    shortUrl: https://api.short.url/v1/abcde
+                    longUrl: https://www.example.com/very/long/url/that/needs/shortening
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/UnprocessableEntity'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  '/{code}':
+    get:
+      summary: Redirect to the original long URL
+      description: Retrieves the original long URL associated with the given short code and redirects the client.
+      operationId: redirectToLongUrl
+      parameters:
+        - name: code
+          in: path
+          description: The short code to redirect.
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{5,10}$' # Example pattern for short codes
+          examples:
+            default:
+              value: abcde
+      responses:
+        '302':
+          description: Redirects to the original long URL.
+          headers:
+            Location:
+              $ref: '#/components/headers/Location'
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  '/{code}/stats':
+    get:
+      summary: Get statistics for a short URL
+      description: Returns the click count and a list of click timestamps for a given short URL code.
+      operationId: getShortUrlStats
+      parameters:
+        - name: code
+          in: path
+          description: The short code for which to retrieve statistics.
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{5,10}$' # Example pattern for short codes
+          examples:
+            default:
+              value: abcde
+      responses:
+        '200':
+          description: Statistics retrieved successfully.
+          headers:
+            X-RateLimit-Limit:
+              $ref: '#/components/headers/X-RateLimit-Limit'
+            X-RateLimit-Remaining:
+              $ref: '#/components/headers/X-RateLimit-Remaining'
+            X-RateLimit-Reset:
+              $ref: '#/components/headers/X-RateLimit-Reset'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
+              examples:
+                default:
+                  value:
+                    code: abcde
+                    longUrl: https://www.example.com/very/long/url/that/needs/shortening
+                    clickCount: 123
+                    timestamps:
+                      - 2023-01-01T10:00:00Z
+                      - 2023-01-01T10:05:30Z
+                      - 2023-01-02T11:15:00Z
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  schemas:
+    ShortenRequest:
+      type: object
+      required:
+        - longUrl
+      properties:
+        longUrl:
+          type: string
+          format: uri
+          description: The original long URL to be shortened.
+          example: https://www.example.com/very/long/url/that/needs/shortening
+    ShortenResponse:
+      type: object
+      required:
+        - shortUrl
+        - longUrl
+      properties:
+        shortUrl:
+          type: string
+          format: uri
+          description: The generated short URL.
+          example: https://api.short.url/v1/abcde
+        longUrl:
+          type: string
+          format: uri
+          description: The original long URL.
+          example: https://www.example.com/very/long/url/that/needs/shortening
+    StatsResponse:
+      type: object
+      required:
+        - code
+        - longUrl
+        - clickCount
+        - timestamps
+      properties:
+        code:
+          type: string
+          description: The short code.
+          example: abcde
+        longUrl:
+          type: string
+          format: uri
+          description: The original long URL.
+          example: https://www.example.com/very/long/url/that/needs/shortening
+        clickCount:
+          type: integer
+          format: int64
+          description: The total number of clicks for this short URL.
+          minimum: 0
+          example: 123
+        timestamps:
+          type: array
+          description: A list of timestamps when the short URL was clicked.
+          items:
+            type: string
+            format: date-time
+          example:
+            - 2023-01-01T10:00:00Z
+            - 2023-01-01T10:05:30Z
+            - 2023-01-02T11:15:00Z
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: A unique error code for the specific error type.
+          example: INVALID_URL_FORMAT
+        message:
+          type: string
+          description: A human-readable explanation of the error.
+          example: The provided URL is not valid.
+        details:
+          type: string
+          description: Optional additional details about the error.
+          example: 'The "longUrl" field must be a valid URI.'
+  responses:
+    BadRequest:
+      description: Bad Request. The request was malformed or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            invalidUrl:
+              value:
+                code: INVALID_URL_FORMAT
+                message: The provided URL is not valid.
+                details: 'The "longUrl" field must be a valid URI.'
+            missingField:
+              value:
+                code: MISSING_REQUIRED_FIELD
+                message: A required field is missing.
+                details: 'The "longUrl" field is required.'
+    NotFound:
+      description: Not Found. The requested resource could not be found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            shortCodeNotFound:
+              value:
+                code: SHORT_CODE_NOT_FOUND
+                message: The requested short code does not exist.
+                details: 'No long URL found for code: abcde'
+    UnprocessableEntity:
+      description: Unprocessable Entity. The request was well-formed but could not be processed due to semantic errors.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            urlAlreadyShortened:
+              value:
+                code: URL_ALREADY_SHORTENED
+                message: This URL has already been shortened.
+                details: 'A short URL already exists for https://www.example.com/...'
+            blacklistedUrl:
+              value:
+                code: URL_BLACKLISTED
+                message: The provided URL is blacklisted.
+                details: 'URLs from this domain are not allowed.'
+    InternalServerError:
+      description: Internal Server Error. An unexpected error occurred on the server.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            default:
+              value:
+                code: INTERNAL_SERVER_ERROR
+                message: An unexpected error occurred. Please try again later.
+  headers:
+    X-RateLimit-Limit:
+      description: The maximum number of requests allowed in the current rate limit window.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+      example: 60
+    X-RateLimit-Remaining:
+      description: The number of requests remaining in the current rate limit window.
+      schema:
+        type: integer
+        format: int32
+        minimum: 0
+      example: 59
+    X-RateLimit-Reset:
+      description: The time at which the current rate limit window resets, in seconds since epoch.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+      example: 1678886400 # Example Unix timestamp
+    Location:
+      description: The URL to which the client should be redirected.
+      schema:
+        type: string
+        format: uri
+      example: https://www.example.com/very/long/url/that/needs/shortening

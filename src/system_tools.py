@@ -238,7 +238,7 @@ class FileScanner:
         return results[:max_results]
 
     def find_duplicates(self, path: str, min_size_kb: int = 50) -> Dict[str, List[str]]:
-        """Find duplicate files by MD5 hash (read-only)."""
+        """Find duplicate files by SHA-256 hash (read-only)."""
         hashes: Dict[str, List[str]] = {}
         count = 0
         try:
@@ -251,7 +251,7 @@ class FileScanner:
                         if size < min_size_kb * 1024:
                             continue
                         count += 1
-                        h = hashlib.md5(entry.read_bytes()).hexdigest()
+                        h = hashlib.sha256(entry.read_bytes()).hexdigest()
                         hashes.setdefault(h, []).append(str(entry))
                 except (PermissionError, OSError, MemoryError):
                     pass

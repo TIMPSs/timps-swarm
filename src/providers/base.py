@@ -10,6 +10,14 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 
+class ProviderError(Exception):
+    """Raised when an LLM provider fails irrecoverably.
+
+    Callers should catch this and handle gracefully (fall through to next
+    provider, return raw data, etc.). The message should be user-facing.
+    """
+
+
 class ProviderInterface(ABC):
     """Minimal contract for every LLM provider."""
 
@@ -43,6 +51,11 @@ class ProviderInterface(ABC):
         temperature : Sampling temperature (0 = deterministic).
         max_tokens  : Maximum response length in tokens.
         format_json : Hint to the provider that JSON output is expected.
+
+        Note: format_json is fully supported by OllamaProvider and
+        GeminiProvider. Other cloud providers (Anthropic, OpenAI, Groq)
+        may ignore this hint — callers should not rely on it for structured
+        output from those backends.
 
         Returns
         -------

@@ -20,10 +20,13 @@ import json
 import logging
 import os
 import re
+import shlex
 import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+from src._helpers import _strip_fences
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +57,9 @@ def _save(subdir: str, filename: str, content: str) -> str:
 
 def _run(cmd: str, cwd: Optional[str] = None) -> str:
     try:
+        args = shlex.split(cmd)
         result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True,
+            args, capture_output=True, text=True,
             timeout=60, cwd=cwd or os.getcwd()
         )
         return (result.stdout + result.stderr).strip()
@@ -129,10 +133,10 @@ def research_agent(args: Dict[str, Any]) -> Dict[str, Any]:
     raw = _router().call("research_agent", prompt, system, format_json=True)
 
     try:
-        brief = json.loads(raw)
+        brief = json.loads(_strip_fences(raw, "json"))
     except Exception:
         brief = {
-            "summary": raw[:1000],
+            "summary": raw[:1000] if not raw.startswith("[ERROR]") else raw[:200],
             "key_findings": [],
             "gotchas": [],
             "recommended_approach": "See summary",
@@ -294,7 +298,7 @@ def db_agent(args: Dict[str, Any]) -> Dict[str, Any]:
     raw = _router().call("db_agent", prompt, system, format_json=True)
 
     try:
-        result = json.loads(raw)
+        result = json.loads(_strip_fences(raw, "json"))
     except Exception:
         result = {
             "ddl_sql": raw[:2000],
@@ -411,7 +415,7 @@ def dependency_agent(args: Dict[str, Any]) -> Dict[str, Any]:
     raw = _router().call("dependency_agent", prompt, system, format_json=True)
 
     try:
-        result = json.loads(raw)
+        result = json.loads(_strip_fences(raw, "json"))
     except Exception:
         result = {
             "cve_report": [],
@@ -546,7 +550,7 @@ def n8n_workflow_agent(args: Dict[str, Any]) -> Dict[str, Any]:
     raw = re.sub(r"\n```$", "", raw, flags=re.MULTILINE)
 
     try:
-        workflow = json.loads(raw)
+        workflow = json.loads(_strip_fences(raw, "json"))
         workflow_json = json.dumps(workflow, indent=2)
     except Exception:
         workflow = {}
