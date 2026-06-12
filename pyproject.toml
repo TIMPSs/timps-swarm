@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "timps-swarm-mcp"
-version = "2.2.0"
+version = "2.2.1"
 description = "TIMPS Swarm — 160 AI agents for code generation, computer health, AI/ML, infra, and more, as an MCP plugin"
 readme = "README.md"
 license = {text = "MIT"}

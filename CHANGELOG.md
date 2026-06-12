@@ -1,6 +1,10 @@
 # Changelog
 
-## [Unreleased]
+## [2.2.1] - 2026-06-12
+
+### Added
+- `mcp` command auto-clones Python backend to `~/.timps/repo/` on first use (true one-command install)
+- `install-mcp` bootstraps the backend during setup
 
 ### Fixed
 - `.gitignore` added and tracked junk removed (`cli/node_modules/`, `__pycache__/`, `.DS_Store`)
