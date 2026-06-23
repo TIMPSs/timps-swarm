@@ -408,14 +408,70 @@ else
   inject_mcp_config "$REPO_DIR/.vscode/mcp.json" "vscode"
 fi
 
-# ── Step 7: Run timps doctor ──────────────────────────────────────────────────
+# ── Step 7: Universal Coding Agent Integration (Phase 3) ─────────────────━━━━
+step "Integrating with coding agents"
+
+NODE_BIN=""
+for candidate in node nodejs; do
+  if command -v "$candidate" &>/dev/null; then
+    NODE_BIN="$candidate"
+    break
+  fi
+done
+
+if [ -n "$NODE_BIN" ]; then
+  if [ -f "$REPO_DIR/cli/lib/claude-code-integration.js" ]; then
+    info "Writing Claude Code agent definitions…"
+    "$NODE_BIN" "$REPO_DIR/cli/lib/claude-code-integration.js" --agents-only && \
+      ok "Claude Code agents written" || \
+      warn "Claude Code agent integration failed (non-fatal)"
+  fi
+
+  if [ -f "$REPO_DIR/cli/lib/cursor-integration.js" ]; then
+    info "Generating Cursor rules…"
+    "$NODE_BIN" "$REPO_DIR/cli/lib/cursor-integration.js" && \
+      ok "Cursor rules generated" || \
+      warn "Cursor integration failed (non-fatal)"
+  fi
+
+  if [ -f "$REPO_DIR/cli/lib/codex-adapter.js" ]; then
+    info "Writing Codex CLI config…"
+    "$NODE_BIN" "$REPO_DIR/cli/lib/codex-adapter.js" && \
+      ok "Codex config written" || \
+      warn "Codex integration failed (non-fatal)"
+  fi
+else
+  warn "Node.js not found — skipping Claude Code, Cursor, and Codex integrations"
+  warn "Install Node.js and re-run: bash install.sh"
+fi
+
+if [ -f "$REPO_DIR/cli/lib/aider-bridge.sh" ]; then
+  chmod +x "$REPO_DIR/cli/lib/aider-bridge.sh"
+  AIDER_BRIDGE_LINK="$BIN_DIR/aider-bridge"
+  if [ ! -f "$AIDER_BRIDGE_LINK" ]; then
+    ln -sf "$REPO_DIR/cli/lib/aider-bridge.sh" "$AIDER_BRIDGE_LINK" && \
+      ok "Aider bridge linked: $AIDER_BRIDGE_LINK"
+  fi
+fi
+
+# Python-side universal config generator
+info "Generating tool connector configs…"
+$PYTHON_BIN -c "
+from src.tool_connectors import generate_all_configs, connect_all
+results = generate_all_configs()
+connected = sum(1 for files in results.values() if files)
+print(f'Configs generated for {len(results)} tools')
+" 2>/dev/null && ok "Tool connector configs generated" || \
+  warn "Tool connector generation skipped (non-fatal)"
+
+# ── Step 8: Run timps doctor ──────────────────────────────────────────────────
 step "Running TIMPS Doctor (validation)"
 
 cd "$REPO_DIR"
 $PYTHON_BIN timps_doctor.py --quick 2>/dev/null && ok "All checks passed" || \
   warn "Some checks failed — run: timps doctor  for details"
 
-# ── Step 8: Start TIMPS daemon ────────────────────────────────────────────────
+# ── Step 9: Start TIMPS daemon ────────────────────────────────────────────────
 step "Starting TIMPS background daemon"
 
 DAEMON_LOG="$INSTALL_DIR/logs/daemon.log"

@@ -55,6 +55,15 @@ if str(_REPO_ROOT) not in sys.path:
 
 logger = logging.getLogger("timps-mcp")
 
+# ── Feature flags (Phase 3: disable progress/sampling for clients that
+#     don't support them or for bandwidth-sensitive environments) ──────────────
+_DISABLE_PROGRESS = os.getenv("TIMPS_DISABLE_PROGRESS", "").lower() in ("1", "true", "yes")
+_DISABLE_SAMPLING = os.getenv("TIMPS_DISABLE_SAMPLING", "").lower() in ("1", "true", "yes")
+if _DISABLE_PROGRESS:
+    logger.warning("Progress notifications disabled (TIMPS_DISABLE_PROGRESS=1)")
+if _DISABLE_SAMPLING:
+    logger.warning("MCP sampling disabled (TIMPS_DISABLE_SAMPLING=1)")
+
 # ── Thread pool for concurrent agent execution ────────────────────────────────
 _MAX_AGENT_WORKERS = int(os.getenv("TIMPS_MAX_AGENT_WORKERS", "10"))
 _EXECUTOR = ThreadPoolExecutor(max_workers=_MAX_AGENT_WORKERS, thread_name_prefix="timps-agent")
@@ -96,7 +105,7 @@ def _mcp_sample(system: str, user_prompt: str, max_tokens: int = 8192) -> Option
     The caller (LLMRouter) falls back to local Ollama in those cases.
     """
     global _SAMPLE_COUNTER
-    if not _CLIENT_SUPPORTS_SAMPLING or _STDOUT_BUF is None or _STDIN_BUF is None:
+    if _DISABLE_SAMPLING or not _CLIENT_SUPPORTS_SAMPLING or _STDOUT_BUF is None or _STDIN_BUF is None:
         return None
 
     _SAMPLE_COUNTER += 1
@@ -144,7 +153,7 @@ def _mcp_sample(system: str, user_prompt: str, max_tokens: int = 8192) -> Option
 
 def _send_progress(progress_token: Any, progress: int, total: int, message: str):
     """Send a progress notification to the MCP client (non-blocking)."""
-    if _STDOUT_BUF is None:
+    if _DISABLE_PROGRESS or _STDOUT_BUF is None:
         return
     notification = {
         "jsonrpc": "2.0",
@@ -2046,20 +2055,24 @@ def _handle_request(msg: Dict) -> Optional[str]:
             _CLIENT_NAME, list(client_caps.keys()), _CLIENT_SUPPORTS_SAMPLING
         )
         # Register the sampler so LLMRouter uses it for all subsequent calls
-        try:
-            from src.llm_router import set_mcp_sampler
-            set_mcp_sampler(_mcp_sample, supports_sampling=_CLIENT_SUPPORTS_SAMPLING)
-        except Exception:
-            pass
+        if not _DISABLE_SAMPLING:
+            try:
+                from src.llm_router import set_mcp_sampler
+                set_mcp_sampler(_mcp_sample, supports_sampling=_CLIENT_SUPPORTS_SAMPLING)
+            except Exception:
+                pass
+        capabilities: Dict[str, Any] = {
+            "tools": {"listChanged": False},
+        }
+        if not _DISABLE_SAMPLING:
+            capabilities["sampling"] = {}   # server may send sampling/createMessage
+        experimental: Dict[str, Any] = {}
+        if not _DISABLE_PROGRESS:
+            experimental["progress"] = {}   # server may send notifications/progress
         return _make_response(id_, {
             "protocolVersion": "2024-11-05",
-            "capabilities": {
-                "tools": {"listChanged": False},
-                "sampling": {},   # server may send sampling/createMessage
-            },
-            "experimental": {
-                "progress": {},   # server may send notifications/progress
-            },
+            "capabilities": capabilities,
+            "experimental": experimental,
             "serverInfo": {
                 "name": "timps-swarm",
                 "version": "2.2.0",

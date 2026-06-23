@@ -49,7 +49,9 @@ TOOLS: Dict[str, Dict[str, Any]] = {
         "type": "cli",
         "detect_cmd": "claude",
         "config_path": HOME / ".claude" / "mcp.json",
-        "integration": "mcp_stdio",
+        "agents_path": HOME / ".claude" / "agents",
+        "settings_path": HOME / ".claude" / "settings.json",
+        "integration": "claude_code_agents",
         "docs_url": "https://docs.anthropic.com/claude/docs/claude-code",
         "icon": "🤖",
     },
@@ -59,7 +61,7 @@ TOOLS: Dict[str, Dict[str, Any]] = {
         "type": "cli",
         "detect_cmd": "codex",
         "config_path": HOME / ".codex" / "config.json",
-        "integration": "mcp_stdio",
+        "integration": "codex_adapter",
         "docs_url": "https://github.com/openai/codex",
         "icon": "⚡",
     },
@@ -202,7 +204,8 @@ TOOLS: Dict[str, Dict[str, Any]] = {
             HOME / ".cursor",
         ],
         "config_path": HOME / ".cursor" / "mcp.json",
-        "integration": "mcp_stdio",
+        "rules_dir": HOME / ".cursor" / "rules",
+        "integration": "cursor_rules",
         "docs_url": "https://docs.cursor.com/advanced/model-context-protocol",
         "icon": "🖱️",
     },
@@ -387,7 +390,6 @@ def _generate_mcp_stdio(config_path: Path) -> None:
 
 def _generate_vscode_mcp(config_path: Path) -> None:
     """VS Code / Cline / Continue / Kilo Code workspace .vscode/mcp.json"""
-    block = {"mcp": {"servers": _mcp_server_block()}}
     config_path.parent.mkdir(parents=True, exist_ok=True)
     existing: Dict[str, Any] = {}
     if config_path.exists():
@@ -563,6 +565,222 @@ def _generate_replit_mcp(config_path: Path) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Phase 3 — Universal Coding Agent Adapters
+# ─────────────────────────────────────────────────────────────────────────────
+
+_CLAUDE_CODE_AGENTS = [
+    ("timps-sdlc-pipeline", "TIMPS SDLC Pipeline",
+     "Full software development lifecycle: product management, architecture, code generation, review, QA, security, performance, devops, and documentation.",
+     ["timps_run_task"],
+     "For bulk code operations across many files, use `timps_batch` with agent_type='code_generator'."),
+    ("timps-code-reviewer", "TIMPS Code Reviewer",
+     "Review pull request diffs for blockers, suggestions, and nitpicks. Returns a structured review with a 0-10 score.",
+     ["timps_pr_reviewer"],
+     "For reviewing every file in a directory in one shot, use `timps_batch` with agent_type='pr_reviewer'."),
+    ("timps-unit-test-writer", "TIMPS Unit Test Writer",
+     "Analyse source code and generate comprehensive test suites with happy paths, edge cases, and error conditions.",
+     ["timps_unit_test_writer"],
+     "For adding tests to every module in a project, use `timps_batch` with agent_type='unit_test_writer'."),
+    ("timps-docstring-generator", "TIMPS Docstring Generator",
+     "Insert production-quality docstrings in Google, Sphinx, NumPy, JSDoc, or Doxygen format without changing logic.",
+     ["timps_docstring_generator"],
+     "For documenting every function across a codebase, use `timps_batch` with agent_type='docstring_generator'."),
+    ("timps-api-designer", "TIMPS API Designer",
+     "Generate complete OpenAPI 3.1 specs from natural-language descriptions with REST/GraphQL best practices.",
+     ["timps_api_design_agent"], None),
+    ("timps-db-architect", "TIMPS DB Architect",
+     "Schema design, query optimisation, migration scripts, ER diagrams, and index recommendations.",
+     ["timps_db_agent"], None),
+    ("timps-dependency-auditor", "TIMPS Dependency Auditor",
+     "Scan manifests for CVEs, license compliance, version pinning strategy, and safe upgrade scripts.",
+     ["timps_dependency_agent", "timps_dependency_sentinel", "timps_dependency_rebel"],
+     "For scanning all manifests in a monorepo, use `timps_batch` with agent_type='dependency_agent'."),
+    ("timps-system-doctor", "TIMPS System Doctor",
+     "Diagnose slow computers, broken dev environments, network issues, battery drain, security vulnerabilities, and privacy risks.",
+     ["timps_system_optimizer", "timps_environment_doctor", "timps_network_medic",
+      "timps_battery_analyst", "timps_security_guard", "timps_log_interpreter"],
+     "Run `timps_full_checkup` for a comprehensive 6-agent health scan."),
+    ("timps-research-assistant", "TIMPS Research Assistant",
+     "Deep-dive research on any topic with multi-source synthesis, trend monitoring, and competitive analysis.",
+     ["timps_research_scout", "timps_trend_monitor", "timps_competitor_tracker"], None),
+    ("timps-security-auditor", "TIMPS Security Auditor",
+     "Comprehensive security scanning: OWASP API Top 10, container CVEs, prompt injection, secrets detection, and compliance mapping.",
+     ["timps_api_security_tester", "timps_container_image_scanner", "timps_prompt_injection_scanner",
+      "timps_secrets_management", "timps_compliance_auditor"], None),
+    ("timps-infra-engineer", "TIMPS Infra Engineer",
+     "Kubernetes diagnostics, Docker Compose, Terraform plan review, IaC drift detection, and disaster recovery planning.",
+     ["timps_kubernetes_navigator", "timps_docker_compose_architect", "timps_terraform_plan_reviewer",
+      "timps_disaster_recovery"], None),
+]
+
+
+def _generate_claude_code_agents(config_path: Path) -> None:
+    """Write Claude Code sub-agent .md files and merge MCP into settings.json."""
+    # Phase 1: write .md agent files
+    agents_dir = config_path.parent / "agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    for slug, name, purpose, tools, routing_hint in _CLAUDE_CODE_AGENTS:
+        lines = [
+            f"# {name}",
+            "",
+            purpose,
+            "",
+            "## MCP Tools",
+            "",
+        ]
+        for t in tools:
+            lines.append(f"- `{t}`")
+        if routing_hint:
+            lines.extend(["", "## Routing Hint", "", routing_hint])
+        lines.extend([
+            "",
+            "---",
+            "_Managed by TIMPS Swarm tool_connectors. Remove this file and re-run connect to unregister._",
+            "",
+        ])
+        agent_file = agents_dir / f"{slug}.md"
+        agent_file.write_text("\n".join(lines))
+        logger.info("Wrote Claude Code agent: %s", agent_file)
+
+    # Phase 2: merge MCP server into settings.json
+    settings_path = config_path.parent / "settings.json"
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    existing: Dict[str, Any] = {}
+    if settings_path.exists():
+        try:
+            existing = json.loads(settings_path.read_text())
+        except Exception:
+            pass
+    existing.setdefault("mcpServers", {})["timps-swarm"] = {
+        "command": TIMPS_MCP_CMD,
+        "env": {"OLLAMA_HOST": "http://localhost:11434"},
+    }
+    settings_path.write_text(json.dumps(existing, indent=2))
+    logger.info("Merged Claude Code settings: %s", settings_path)
+
+
+def _generate_cursor_rules(config_path: Path) -> None:
+    """Write .cursorrules and .cursor/rules/*.mdc files for Cursor."""
+    cursor_dir = config_path.parent
+    rules_dir = cursor_dir / "rules"
+    rules_dir.mkdir(parents=True, exist_ok=True)
+
+    # .cursorrules (user-level)
+    rules_content = """# TIMPS Swarm — AI Agent Toolkit
+# Managed by TIMPS Swarm tool_connectors
+#
+# Cursor can call any timps_* tool directly. Categories:
+
+## SDLC Pipeline
+- `timps_run_task` — Full 10-agent SDLC pipeline
+- `timps_pr_reviewer` — Structured PR review with 0-10 score
+- `timps_unit_test_writer` — Generate test suites
+- `timps_docstring_generator` — Insert docstrings
+- `timps_refactoring_agent` — Detect code smells and refactor
+
+## API & Database
+- `timps_api_design_agent` — Generate OpenAPI 3.1 specs
+- `timps_db_agent` — Schema design, migrations, ER diagrams
+- `timps_sql_optimizer` — Analyse slow queries
+
+## Code Quality & Security
+- `timps_dependency_agent` — CVE scan, license check, upgrade script
+- `timps_security_guard` — Open ports, permissions scan
+- `timps_api_security_tester` — OWASP API Top-10 audit
+
+## Computer Health
+- `timps_system_optimizer` — Diagnose slow laptop
+- `timps_environment_doctor` — Fix broken dev environments
+- `timps_network_medic` — Diagnose WiFi drops, DNS failures
+- `timps_full_checkup` — Run all health agents
+
+## Infrastructure
+- `timps_kubernetes_navigator` — Diagnose K8s workloads
+- `timps_docker_compose_architect` — Production compose files
+- `timps_terraform_plan_reviewer` — Review terraform plans
+
+## Bulk Operations
+- `timps_batch` — Decompose a bulk task into parallel sub-tasks
+"""
+    rules_path = cursor_dir / ".cursorrules"
+    rules_path.write_text(rules_content)
+    logger.info("Wrote .cursorrules: %s", rules_path)
+
+    # .mdc rule files
+    mdc_templates = {
+        "timps-sdlc.mdc": (
+            "---\ndescription: TIMPS SDLC Pipeline\nglobs: **/*.{py,js,ts,jsx,tsx,go,java,rs}\n---\n"
+            "When writing code, use these TIMPS tools:\n"
+            "- `timps_run_task` — Full SDLC pipeline\n"
+            "- `timps_unit_test_writer` — Generate test suites\n"
+            "- `timps_docstring_generator` — Add docstrings\n"
+            "- `timps_pr_reviewer` — Review code changes\n"
+            "- `timps_refactoring_agent` — Refactor code\n"
+        ),
+        "timps-security.mdc": (
+            "---\ndescription: TIMPS Security Agents\nglobs: **/*\n---\n"
+            "Security checks available via TIMPS:\n"
+            "- `timps_dependency_agent` — CVE scan manifests\n"
+            "- `timps_api_security_tester` — OWASP API Top-10 audit\n"
+            "- `timps_security_guard` — Local security scan\n"
+            "- `timps_secrets_management` — Detect hardcoded secrets\n"
+            "- `timps_compliance_auditor` — SOC 2 / ISO 27001 / HIPAA / PCI-DSS / GDPR\n"
+        ),
+        "timps-infra.mdc": (
+            "---\ndescription: TIMPS Infrastructure & DevOps Agents\nglobs: **/*.{yml,yaml,tf,tfvars,dockerfile,json,toml}\n---\n"
+            "Infrastructure tasks via TIMPS:\n"
+            "- `timps_kubernetes_navigator` — Diagnose K8s workloads\n"
+            "- `timps_docker_compose_architect` — Create compose files\n"
+            "- `timps_terraform_plan_reviewer` — Review terraform plans\n"
+            "- `timps_iac_drift_detector` — Detect IaC drift\n"
+            "- `timps_disaster_recovery` — Design DR plans\n"
+        ),
+        "timps-database.mdc": (
+            "---\ndescription: TIMPS Database & Query Agents\nglobs: **/*.{sql,py,js,ts}\n---\n"
+            "Database tasks via TIMPS:\n"
+            "- `timps_db_agent` — Schema design, migrations, ER diagrams\n"
+            "- `timps_sql_optimizer` — Analyse slow queries\n"
+            "- `timps_db_migration_pilot` — Zero-downtime migration planning\n"
+        ),
+    }
+    for filename, content in mdc_templates.items():
+        mdc_path = rules_dir / filename
+        mdc_path.write_text(content)
+        logger.info("Wrote .mdc rule: %s", mdc_path)
+
+
+def _generate_codex_adapter(config_path: Path) -> None:
+    """Generate ~/.codex/config.json with TIMPS MCP server and sub-agent descriptions."""
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    existing: Dict[str, Any] = {}
+    if config_path.exists():
+        try:
+            existing = json.loads(config_path.read_text())
+        except Exception:
+            pass
+
+    existing.setdefault("mcpServers", {})["timps-swarm"] = {
+        "command": TIMPS_MCP_CMD,
+        "type": "stdio",
+        "description": "TIMPS Swarm — 160+ specialist agents",
+        "env": {
+            "TIMPS_API_URL": "http://localhost:8000",
+            "OLLAMA_HOST": "http://localhost:11434",
+        },
+    }
+
+    existing.setdefault("agents", {})
+    for slug, name, _purpose, tools, _hint in _CLAUDE_CODE_AGENTS:
+        existing["agents"][slug] = {
+            "description": name,
+            "tools": tools,
+        }
+
+    config_path.write_text(json.dumps(existing, indent=2))
+    logger.info("Wrote Codex config: %s", config_path)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Integration-type dispatch table
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -577,6 +795,10 @@ _GENERATORS = {
     "warp_mcp":             _generate_warp_mcp,
     "factory_droids":       _generate_factory_droids,
     "replit_mcp":           _generate_replit_mcp,
+    # Phase 3 — Universal Coding Agent Adapters
+    "claude_code_agents":   _generate_claude_code_agents,
+    "cursor_rules":         _generate_cursor_rules,
+    "codex_adapter":        _generate_codex_adapter,
     # Cloud SaaS — can't auto-configure, just skip
     "devin_mcp_endpoint":   None,
     "github_app_webhook":   None,
@@ -654,6 +876,50 @@ def connect_all(dry_run: bool = False, installed_only: bool = True) -> List[Dict
             continue
         result = connect_tool(tool_id, dry_run=dry_run)
         results.append(result)
+
+    return results
+
+
+def generate_all_configs(base_dir: Optional[str] = None) -> Dict[str, List[str]]:
+    """
+    Generate all MCP configuration files for every supported tool at once.
+
+    This is the Phase 3 universal config generator. It writes:
+      - MCP server configs for 22+ tools (Claude, Cursor, VS Code, etc.)
+      - Claude Code sub-agent .md files with routing hints
+      - Cursor .cursorrules + .mdc rule files
+      - Codex CLI config with sub-agent descriptions
+
+    Args:
+        base_dir: Optional project root. If set, writes repo-local .vscode/mcp.json
+                  and .cursor/ rules into the project directory.
+
+    Returns:
+        {tool_id: [list of written file paths]}
+    """
+    results: Dict[str, List[str]] = {}
+
+    for tool_id, meta in TOOLS.items():
+        integration = meta.get("integration")
+        config_path = meta.get("config_path")
+        generator = _GENERATORS.get(integration)
+
+        if generator is None:
+            continue
+
+        try:
+            if base_dir and tool_id in ("cursor", "vscode_mcp"):
+                # Write into project directory
+                project_path = Path(base_dir) / meta.get("config_path", "")
+                generator(project_path)
+                results.setdefault(tool_id, []).append(str(project_path))
+            elif config_path:
+                generator(Path(config_path))
+                results.setdefault(tool_id, []).append(str(config_path))
+            else:
+                logger.warning("No config path for %s, skipping", tool_id)
+        except Exception as exc:
+            logger.error("Failed to generate config for %s: %s", tool_id, exc)
 
     return results
 
