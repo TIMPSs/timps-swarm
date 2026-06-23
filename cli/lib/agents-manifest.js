@@ -1,6 +1,6 @@
 // AUTO-GENERATED from mcp_server/server.py:TOOLS by cli/tools/generate-manifest.js
 // Keep names & descriptions in sync with mcp_server/server.py.
-// Total: 160 agents.
+// Total: 161 agents.
 
 /** @typedef {{name: string, description: string, category: string, model: string}} Agent */
 
@@ -8,7 +8,7 @@
  *  Source of truth: mcp_server/server.py TOOLS[]. Mirror it here; keep names/descriptions in sync.
  */
 export const AGENTS = [
-  { name: 'timps_list_agents', description: 'List all 22 TIMPS Swarm agents with their purpose, so you can choose the right one for the user\'s request.', category: 'meta', model: 'haiku' },
+  { name: 'timps_list_agents', description: 'List all TIMPS Swarm agents with their purpose, so you can choose the right one for the user\'s request.', category: 'meta', model: 'haiku' },
   { name: 'timps_dispatch', description: 'Auto-detect the best TIMPS agent for any plain-English request and run it immediately. Use this when unsure which agent to pick. Examples: \'my wifi keeps dropping\', \'why is my laptop slow\', \'broken python environment\', \'organize my downloads\'.', category: 'meta', model: 'haiku' },
   { name: 'timps_full_checkup', description: 'Run a comprehensive computer health scan across 6 agents: system optimizer, battery analyst, security guard, network medic, backup sentinel, and update manager. Returns a combined health score and prioritised action list.', category: 'meta', model: 'haiku' },
   { name: 'timps_run_task', description: 'Run the full 10-agent SDLC pipeline (product manager → architect → code generator → reviewer → QA → security → performance → devops → docs). Use for software development tasks: writing code, fixing bugs, building APIs, etc.', category: 'sdlc', model: 'sonnet' },
@@ -26,6 +26,7 @@ export const AGENTS = [
   { name: 'timps_context_switcher', description: 'Analyse current work context: active apps, estimated browser tabs, current git branch and recent commits. Identifies distraction apps and generates a focus-mode script to quit them.', category: 'health', model: 'haiku' },
   { name: 'timps_context_briefing', description: 'Get a 3-sentence resumption briefing from the Context Keeper: what you were working on, current state (uncommitted changes, broken tests), and recommended next step. Use when the user says \'what was I doing\' or \'catch me up\'.', category: 'context', model: 'haiku' },
   { name: 'timps_delegate', description: 'Delegate a multi-step goal to the TIMPS Agent Kernel. The kernel plans, routes to specialist agents, and returns a structured result. Use for complex goals like \'fix the auth bug and ensure 80% test coverage\'.', category: 'kernel', model: 'sonnet' },
+  { name: 'timps_batch', description: 'Intelligently decompose a bulk task into parallel sub-tasks, execute them concurrently, and return a single aggregated result. Use this to do the same operation across many files at once. Examples: \'add tests for all handlers\', \'review all API endpoints\', \'add docstrings to every Python file\', \'find flaky tests across all modules\'.', category: 'meta', model: 'haiku' },
   { name: 'timps_kernel_status', description: 'Check the status of a previously delegated kernel run by its run_id.', category: 'kernel', model: 'sonnet' },
   { name: 'timps_dependency_rebel', description: 'Detect dependency conflicts, vulnerabilities, and outdated packages across Python and Node. Returns a fix plan and remediation script.', category: 'expert', model: 'sonnet' },
   { name: 'timps_merge_conflict_predictor', description: 'Predict merge conflicts between two branches before merging, with file-level and line-level overlap analysis.', category: 'expert', model: 'sonnet' },

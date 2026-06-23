@@ -42,3 +42,7 @@ Refer to the parent agent's invocation — do not invent parameters.
 ## Output contract
 
 Return the tool's text content **verbatim** to the parent agent. Do not wrap it in extra markdown headings, do not add commentary. The parent will integrate it into the user's final answer.
+
+## Routing hint
+
+For auditing multiple API specs at once, use `timps_batch`. Related: `timps_api_design_agent`, `timps_api_security_tester`.

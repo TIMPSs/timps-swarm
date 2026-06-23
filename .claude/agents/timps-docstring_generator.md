@@ -42,3 +42,7 @@ Refer to the parent agent's invocation — do not invent parameters.
 ## Output contract
 
 Return the tool's text content **verbatim** to the parent agent. Do not wrap it in extra markdown headings, do not add commentary. The parent will integrate it into the user's final answer.
+
+## Routing hint
+
+For documenting every function across a codebase, use `timps_batch` with `agent_type: 'docstring_generator'`. Related: `timps_run_task`, `timps_tech_writer_assistant`.

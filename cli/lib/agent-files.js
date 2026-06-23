@@ -19,6 +19,55 @@ import { join, dirname } from "path";
 import { AGENTS, agentFileBase } from "./agents-manifest.js";
 
 /**
+ * Routing hints by agent name — adds a "Routing hint" section to the agent
+ * .md file suggesting `timps_batch` for bulk ops and related agents.
+ */
+const ROUTING_HINTS = {
+  // SDLC
+  timps_run_task:             "For bulk operations across many files (e.g. adding tests to all handlers), use `timps_batch` instead. Related: `timps_pr_reviewer`, `timps_unit_test_writer`, `timps_docstring_generator`.",
+  timps_pr_reviewer:          "For reviewing every file in a directory in one shot, use `timps_batch` with `agent_type: 'pr_reviewer'`. Related: `timps_run_task`.",
+  timps_unit_test_writer:     "For adding tests to every module in a project, use `timps_batch` with `agent_type: 'unit_test_writer'`. Related: `timps_run_task`.",
+  timps_docstring_generator:  "For documenting every function across a codebase, use `timps_batch` with `agent_type: 'docstring_generator'`. Related: `timps_run_task`, `timps_tech_writer_assistant`.",
+  timps_refactoring_agent:    "For bulk refactoring across many files, use `timps_batch` with `agent_type: 'refactoring_agent'`. Related: `timps_pattern_detector`, `timps_technical_debt`.",
+  timps_api_contract_auditor: "For auditing multiple API specs at once, use `timps_batch`. Related: `timps_api_design_agent`, `timps_api_security_tester`.",
+  timps_content_multiplier:   "Related: `timps_demo_video_script_writer`, `timps_podcast_show_notes_writer`, `timps_cold_email_sequence_writer`.",
+  // Health
+  timps_system_optimizer:     "Run `timps_full_checkup` for a comprehensive 6-agent health scan. Related: `timps_environment_doctor`, `timps_update_manager`.",
+  timps_file_organizer:       "Related: `timps_media_librarian`, `timps_disk_space_prophet`.",
+  timps_environment_doctor:   "Related: `timps_dotfile_doctor`, `timps_system_optimizer`.",
+  timps_network_medic:        "Related: `timps_security_guard` (port scan), `timps_full_checkup`.",
+  timps_battery_analyst:      "Related: `timps_system_optimizer`, `timps_full_checkup`.",
+  timps_update_manager:       "Related: `timps_system_optimizer`, `timps_dependency_rebel`.",
+  timps_log_interpreter:      "Related: `timps_log_detective`, `timps_log_pattern_analyzer`, `timps_incident_responder`.",
+  timps_security_guard:       "Related: `timps_api_security_tester`, `timps_container_image_scanner`, `timps_secrets_management`.",
+  timps_privacy_cleaner:      "Related: `timps_security_guard`.",
+  timps_media_librarian:      "Related: `timps_file_organizer`.",
+  timps_backup_sentinel:      "Related: `timps_disk_space_prophet`.",
+  timps_context_switcher:     "Related: `timps_calendar_optimizer`.",
+  // Developer
+  timps_issue_triager:        "Related: `timps_sprint_planning_agent`, `timps_sprint_reporter`.",
+  timps_boilerplate_architect:"Related: `timps_cli_tool_agent`, `timps_db_agent`, `timps_api_design_agent`.",
+  timps_dependency_sentinel:  "For scanning all manifests in a monorepo, use `timps_batch` with `agent_type: 'dependency_agent'`. Related: `timps_dependency_agent`, `timps_dependency_rebel`.",
+  timps_log_detective:        "Related: `timps_log_interpreter`, `timps_log_pattern_analyzer`, `timps_incident_responder`.",
+  timps_sql_optimizer:        "Related: `timps_db_agent`, `timps_db_migration_pilot`.",
+  timps_sprint_reporter:      "Related: `timps_sprint_planning_agent`, `timps_issue_triager`.",
+  timps_flaky_test_hunter:    "Related: `timps_flaky_test_detective`, `timps_test_intelligence`.",
+  // Knowledge
+  timps_research_scout:       "For multi-hop deep research, use `timps_deep_research_agent`. Related: `timps_trend_monitor`, `timps_competitor_tracker`.",
+  timps_data_wrangler:        "For processing many data files at once, use `timps_batch` with `agent_type: 'data_wrangler'`.",
+  timps_competitor_tracker:   "Related: `timps_research_scout`, `timps_trend_monitor`, `timps_web_search`.",
+  // Priority agents
+  timps_db_agent:             "Related: `timps_sql_optimizer`, `timps_db_migration_pilot`.",
+  timps_dependency_agent:     "For scanning all manifests in a monorepo, use `timps_batch`. Related: `timps_dependency_sentinel`, `timps_dependency_rebel`.",
+  timps_api_design_agent:     "Related: `timps_api_contract_auditor`, `timps_api_security_tester`, `timps_graphql_agent`.",
+  timps_n8n_workflow_agent:   "Related: `timps_ai_workflow_orchestrator`.",
+  timps_batch:                "For bulk operations across many files: set `agent_type` to the specialist agent name and `working_dir` to the project root. This is the TIMPS parallel-execution workhorse.",
+  timps_dispatch:              "Auto-routes any plain-English request to the right specialist agent. Use when unsure which agent to pick.",
+  timps_research_agent:       "Related: `timps_research_scout`, `timps_deep_research_agent`, `timps_web_search`.",
+  timps_learning_agent:       "Related: `timps_memory_agent`, `timps_code_archaeology`.",
+};
+
+/**
  * Render the frontmatter + body for a single agent.
  * The 'description' field is what Claude Code uses to decide when to delegate
  * to this sub-agent, so we keep it concrete and trigger-rich.
@@ -33,6 +82,7 @@ export function renderAgentFile(agent) {
   const base = agentFileBase(agent.name);
   const toolName = agent.name;
   const description = agent.description;
+  const hint = ROUTING_HINTS[agent.name];
 
   const desc = `${description} Use the \`${toolName}\` MCP tool to perform this task. Do not answer directly — delegate to this sub-agent.`
     .replace(/\\/g, "\\\\")
@@ -49,7 +99,7 @@ export function renderAgentFile(agent) {
     "---",
   ].join("\n");
 
-  const body = [
+  const bodyLines = [
     "",
     `# ${base.replace(/_/g, " ")}`,
     "",
@@ -89,9 +139,18 @@ export function renderAgentFile(agent) {
     "",
     "Return the tool's text content **verbatim** to the parent agent. Do not wrap it in extra markdown headings, do not add commentary. The parent will integrate it into the user's final answer.",
     "",
-  ].join("\n");
+  ];
 
-  return frontmatter + body;
+  if (hint) {
+    bodyLines.splice(bodyLines.length - 1, 0,
+      "",
+      "## Routing hint",
+      "",
+      hint,
+    );
+  }
+
+  return frontmatter + bodyLines.join("\n");
 }
 
 /**

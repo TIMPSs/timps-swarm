@@ -152,6 +152,7 @@ const CATEGORIES = {
   // ── meta
   timps_list_agents: "meta", timps_dispatch: "meta", timps_full_checkup: "meta",
   timps_list_providers: "meta", timps_connect_tools: "meta", timps_tool_status: "meta",
+  timps_batch: "meta",
 };
 const MODEL = {
   sdlc: "sonnet", priority: "sonnet", expert: "sonnet", kernel: "sonnet",

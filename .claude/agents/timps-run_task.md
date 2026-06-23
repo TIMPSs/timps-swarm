@@ -42,3 +42,7 @@ Refer to the parent agent's invocation — do not invent parameters.
 ## Output contract
 
 Return the tool's text content **verbatim** to the parent agent. Do not wrap it in extra markdown headings, do not add commentary. The parent will integrate it into the user's final answer.
+
+## Routing hint
+
+For bulk operations across many files (e.g. adding tests to all handlers), use `timps_batch` instead. Related: `timps_pr_reviewer`, `timps_unit_test_writer`, `timps_docstring_generator`.

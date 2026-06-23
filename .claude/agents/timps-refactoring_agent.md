@@ -42,3 +42,7 @@ Refer to the parent agent's invocation — do not invent parameters.
 ## Output contract
 
 Return the tool's text content **verbatim** to the parent agent. Do not wrap it in extra markdown headings, do not add commentary. The parent will integrate it into the user's final answer.
+
+## Routing hint
+
+For bulk refactoring across many files, use `timps_batch` with `agent_type: 'refactoring_agent'`. Related: `timps_pattern_detector`, `timps_technical_debt`.
