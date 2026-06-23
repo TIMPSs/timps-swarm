@@ -39,8 +39,12 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import sys
+import threading
+import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -50,6 +54,29 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 logger = logging.getLogger("timps-mcp")
+
+# ── Thread pool for concurrent agent execution ────────────────────────────────
+_MAX_AGENT_WORKERS = int(os.getenv("TIMPS_MAX_AGENT_WORKERS", "10"))
+_EXECUTOR = ThreadPoolExecutor(max_workers=_MAX_AGENT_WORKERS, thread_name_prefix="timps-agent")
+
+# ── Observer & Auto-Spawner (wired lazily) ───────────────────────────────────
+_OBSERVER_INITIALIZED: bool = False
+
+
+def _init_observer():
+    global _OBSERVER_INITIALIZED
+    if _OBSERVER_INITIALIZED:
+        return
+    try:
+        from src.observer import get_observer
+        from src.auto_spawner import get_auto_spawner
+        obs = get_observer()
+        get_auto_spawner(obs)
+        _OBSERVER_INITIALIZED = True
+        logger.warning("TaskObserver + AutoSpawner initialized")
+    except Exception as exc:
+        logger.debug("Observer not available (%s) — running without auto-spawn", exc)
+
 
 # ── MCP Sampling state ───────────────────────────────────────────────────────
 # Set once the client connects; lets agents use the caller's LLM instead of Ollama.
@@ -111,6 +138,73 @@ def _mcp_sample(system: str, user_prompt: str, max_tokens: int = 8192) -> Option
     except Exception as exc:
         logger.error("MCP sampling round-trip failed: %s", exc)
     return None
+
+
+# ── Progress notification helper ──────────────────────────────────────────────
+
+def _send_progress(progress_token: Any, progress: int, total: int, message: str):
+    """Send a progress notification to the MCP client (non-blocking)."""
+    if _STDOUT_BUF is None:
+        return
+    notification = {
+        "jsonrpc": "2.0",
+        "method": "notifications/progress",
+        "params": {
+            "progressToken": progress_token,
+            "progress": progress,
+            "total": total,
+            "message": message,
+        },
+    }
+    try:
+        _STDOUT_BUF.write((json.dumps(notification) + "\n").encode())
+        _STDOUT_BUF.flush()
+    except Exception:
+        pass
+
+
+def _execute_with_progress(handler, args: dict, tool_name: str, progress_token: Any) -> str:
+    """Execute a tool handler in a background thread, sending progress notifications."""
+    _init_observer()
+    result_holder: list[str] = []
+    error_holder: list[Exception] = []
+
+    def run():
+        try:
+            result = handler(args)
+            result_holder.append(result)
+        except Exception as exc:
+            error_holder.append(exc)
+
+    thread = threading.Thread(target=run, daemon=True, name=f"tp-{tool_name}")
+    thread.start()
+
+    start_ts = time.time()
+    last_msg_ts = start_ts
+
+    while thread.is_alive():
+        time.sleep(0.5)
+        elapsed = time.time() - start_ts
+        if elapsed > 2 and time.time() - last_msg_ts > 3:
+            _send_progress(progress_token, min(int(elapsed * 5), 90), 100,
+                           f"Running {tool_name}... ({int(elapsed)}s)")
+            last_msg_ts = time.time()
+
+    duration_ms = int((time.time() - start_ts) * 1000)
+
+    if error_holder:
+        raise error_holder[0]
+    text = result_holder[0]
+
+    # Record the call in the observer
+    try:
+        from src.observer import get_observer
+        obs = get_observer()
+        obs.record_call(tool_name, args, {"status": "ok", "isError": False}, duration_ms=duration_ms)
+    except Exception:
+        pass
+
+    return text
 
 
 # ── Lazy imports so the server starts even if heavy deps are missing ──────────
@@ -1423,7 +1517,7 @@ def _handle_run_task(args: Dict) -> str:
         if val:
             lines.append(f"## {key.replace('_', ' ').title()}\n{val[:800]}\n")
     if task.artifacts:
-        lines.append(f"## Artifacts\n" + "\n".join(f"- {a}" for a in task.artifacts))
+        lines.append("## Artifacts\n" + "\n".join(f"- {a}" for a in task.artifacts))
     if task.error:
         lines.append(f"## Error\n{task.error}")
     return "\n".join(lines)
@@ -1595,7 +1689,7 @@ def _handle_tool_status(args: Dict) -> str:
             lines.append(f"- {t['icon']} **{t['name']}** → use `timps_connect_tools` with `tool_id: {t['id']}`")
 
     if report["cloud_tools"]:
-        lines.append(f"\n## ☁️ Cloud tools (manual setup)")
+        lines.append("\n## ☁️ Cloud tools (manual setup)")
         for t in report["cloud_tools"]:
             lines.append(f"- **{t['name']}** → [{t['docs']}]({t['docs']})")
 
@@ -1833,7 +1927,8 @@ def _handle_request(msg: Dict) -> Optional[str]:
         client_caps = params.get("capabilities") or {}
         _CLIENT_SUPPORTS_SAMPLING = "sampling" in client_caps
         # Debug: dump full initialize params so we can inspect capabilities
-        import pathlib, datetime
+        import pathlib
+        import datetime
         _dbg = pathlib.Path("/tmp/timps-mcp-debug.json")
         _dbg.write_text(json.dumps({
             "ts": datetime.datetime.now().isoformat(),
@@ -1857,6 +1952,9 @@ def _handle_request(msg: Dict) -> Optional[str]:
             "capabilities": {
                 "tools": {"listChanged": False},
                 "sampling": {},   # server may send sampling/createMessage
+            },
+            "experimental": {
+                "progress": {},   # server may send notifications/progress
             },
             "serverInfo": {
                 "name": "timps-swarm",
@@ -1884,6 +1982,7 @@ def _handle_request(msg: Dict) -> Optional[str]:
     if method == "tools/call":
         tool_name = params.get("name", "")
         arguments = params.get("arguments") or {}
+        progress_token = params.get("_meta", {}).get("progressToken")
 
         # ── API key authentication ─────────────────────────────────────────
         try:
@@ -1901,12 +2000,34 @@ def _handle_request(msg: Dict) -> Optional[str]:
             return _make_error(id_, -32601, f"Unknown tool: {tool_name}")
 
         try:
-            text = handler(arguments)
+            if progress_token is not None:
+                text = _execute_with_progress(handler, arguments, tool_name, progress_token)
+            else:
+                text = handler(arguments)
+                try:
+                    from src.observer import get_observer
+                    get_observer().record_call(tool_name, arguments, {"status": "ok"})
+                except Exception:
+                    pass
+
+            # Enrich response with auto-spawner status if active
+            try:
+                from src.auto_spawner import get_auto_spawner
+                spawner = get_auto_spawner()
+                if spawner and spawner.active_pools:
+                    pool_info = spawner.pool_status()
+                    text += "\n\n---\n**⚡ TIMPS Auto-Spawner:** "
+                    text += f"Detected repetitive `{tool_name}` calls. "
+                    text += f"Spawned {sum(v['count'] for v in pool_info.values())} sub-agents "
+                    text += "to handle remaining items in parallel."
+            except Exception:
+                pass
+
             return _make_response(id_, {
                 "content": [{"type": "text", "text": text}],
                 "isError": False,
             })
-        except Exception as exc:
+        except Exception:
             err_text = f"Tool {tool_name} failed:\n{traceback.format_exc()}"
             logger.error(err_text)
             return _make_response(id_, {

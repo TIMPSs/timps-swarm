@@ -1,14 +1,18 @@
 """
-LangGraph workflow — wires all agents into a conditional DAG.
+LangGraph workflow — wires all agents into a conditional DAG with
+parallel fan-out for independent tasks.
 
 Flow:
   orchestrator → [research_agent →] [api_design_agent →]
+               → parallel_executor (fan-out multiple ready agents)
                → [product_manager | architect | code_generator | ...]
                → [dependency_agent →] documentation_writer → END
 """
+import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Any, Callable
 
 from langgraph.graph import StateGraph, END
 
@@ -27,6 +31,9 @@ from src.agents import (
 )
 
 logger = logging.getLogger(__name__)
+
+MAX_PARALLEL = 5
+_PARALLEL_EXECUTOR = ThreadPoolExecutor(max_workers=MAX_PARALLEL)
 
 # ── New domain agent names (module-level for testability) ─────────────────────
 _NEW_AGENTS = [
@@ -161,6 +168,105 @@ def _dependency_agent_node(state: SwarmState) -> dict:
     }
 
 
+# ── Domain-agent loader (module-level so both build_graph and parallel_executor can use it) ─
+
+def _load_agents():
+    from src.intelligence import INTELLIGENCE_AGENTS
+    from src.aiml       import AIML_AGENTS
+    from src.india      import INDIA_AGENTS
+    from src.domain     import DOMAIN_AGENTS
+    from src.business   import BUSINESS_AGENTS
+    from src.infra      import INFRA_AGENTS
+    from src.emerging   import EMERGING_AGENTS
+    from src.more_agents   import MORE_AGENTS
+    from src.priority_agents import PRIORITY_AGENTS
+    from src.nextgen    import NEXTGEN_AGENTS
+    from src.phase7     import PHASE7_AGENTS
+    combined = {}
+    for d in [INTELLIGENCE_AGENTS, AIML_AGENTS, INDIA_AGENTS, DOMAIN_AGENTS,
+              BUSINESS_AGENTS, INFRA_AGENTS, EMERGING_AGENTS, MORE_AGENTS,
+              NEXTGEN_AGENTS, PHASE7_AGENTS]:
+        combined.update(d)
+    for k in ["n8n_workflow_agent"]:
+        if k in PRIORITY_AGENTS:
+            combined[k] = PRIORITY_AGENTS[k]
+    return combined
+
+
+# ── Parallel fan-out executor ──────────────────────────────────────────────────
+
+def _deps_met(task: dict, tasks: list[dict]) -> bool:
+    deps = task.get("dependencies", [])
+    return all(
+        any(t["id"] == d and t["status"] == "completed" for t in tasks)
+        for d in deps
+    )
+
+
+def _resolve_node_fn(agent_name: str) -> Callable | None:
+    """Get the LangGraph-compatible node function for any agent by name."""
+    _CORE = {
+        "orchestrator": orchestrator_node,
+        "product_manager": product_manager_node,
+        "architect": architect_node,
+        "code_generator": code_generator_node,
+        "code_reviewer": code_reviewer_node,
+        "qa_tester": qa_tester_node,
+        "security_auditor": security_auditor_node,
+        "performance_optimizer": performance_optimizer_node,
+        "documentation_writer": documentation_writer_node,
+        "devops": devops_node,
+        "research_agent": _research_agent_node,
+        "api_design_agent": _api_design_node,
+        "dependency_agent": _dependency_agent_node,
+    }
+    if agent_name in _CORE:
+        return _CORE[agent_name]
+    all_domain = _load_agents()
+    if agent_name in all_domain:
+        return _make_node(agent_name, all_domain[agent_name])
+    return None
+
+
+async def parallel_executor_node(state: SwarmState) -> dict:
+    """Run all independent pending tasks concurrently via asyncio.gather()."""
+    tasks = state.get("tasks", [])
+    pending = [t for t in tasks if t["status"] == "pending" and _deps_met(t, tasks)]
+    pending = pending[:MAX_PARALLEL]
+
+    if not pending:
+        return {}
+
+    async def run_one(task: dict) -> dict:
+        agent_name = task["assigned_to"]
+        node_fn = _resolve_node_fn(agent_name)
+        if node_fn is None:
+            task["status"] = "failed"
+            task["output"] = f"No agent function found: {agent_name}"
+            task["completed_at"] = datetime.now(timezone.utc).isoformat()
+            return {"tasks": [task]}
+        mini_state: SwarmState = dict(state)
+        mini_state["tasks"] = [task]
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(_PARALLEL_EXECUTOR, node_fn, mini_state)
+
+    results = await asyncio.gather(*[run_one(t) for t in pending], return_exceptions=True)
+
+    merged: dict[str, Any] = {}
+    for result in results:
+        if isinstance(result, Exception):
+            logger.error("Parallel agent failed with: %s", result)
+            continue
+        if not isinstance(result, dict):
+            continue
+        for key, val in result.items():
+            if isinstance(val, list):
+                merged.setdefault(key, []).extend(val)
+            elif val:
+                merged[key] = val
+    return merged
+
+
 # ── Routing logic ─────────────────────────────────────────────────────────────
 
 def route_after_orchestrator(state: SwarmState) -> str:
@@ -174,6 +280,12 @@ def route_after_orchestrator(state: SwarmState) -> str:
 
     tasks = state.get("tasks", [])
     pending = {t["assigned_to"] for t in tasks if t["status"] == "pending"}
+
+    # ── Parallel fan-out: if multiple independent tasks are ready, run them concurrently ────
+    pending_tasks = [t for t in tasks if t["status"] == "pending" and _deps_met(t, tasks)]
+    if len(pending_tasks) >= 2:
+        logger.info("Parallel fan-out: %d tasks ready → parallel_executor", len(pending_tasks))
+        return "parallel_executor"
 
     # NEW: research before everything else
     if "research_agent" in pending:
@@ -247,35 +359,15 @@ def build_graph() -> StateGraph:
     workflow.add_node("documentation_writer",   documentation_writer_node)
     workflow.add_node("devops",                 devops_node)
 
+    # ── Parallel fan-out executor ──────────────────────────────────────────────
+    workflow.add_node("parallel_executor",      parallel_executor_node)
+
     # ── Priority agents (hand-crafted wrappers above) ─────────────────────────
     workflow.add_node("research_agent",         _research_agent_node)
     workflow.add_node("api_design_agent",       _api_design_node)
     workflow.add_node("dependency_agent",       _dependency_agent_node)
 
     # ── Bulk registration of domain-package agents ────────────────────────────
-    def _load_agents():
-        from src.intelligence import INTELLIGENCE_AGENTS
-        from src.aiml       import AIML_AGENTS
-        from src.india      import INDIA_AGENTS
-        from src.domain     import DOMAIN_AGENTS
-        from src.business   import BUSINESS_AGENTS
-        from src.infra      import INFRA_AGENTS
-        from src.emerging   import EMERGING_AGENTS
-        from src.more_agents   import MORE_AGENTS
-        from src.priority_agents import PRIORITY_AGENTS
-        from src.nextgen    import NEXTGEN_AGENTS
-        from src.phase7     import PHASE7_AGENTS
-        combined = {}
-        for d in [INTELLIGENCE_AGENTS, AIML_AGENTS, INDIA_AGENTS, DOMAIN_AGENTS,
-                  BUSINESS_AGENTS, INFRA_AGENTS, EMERGING_AGENTS, MORE_AGENTS,
-                  NEXTGEN_AGENTS, PHASE7_AGENTS]:
-            combined.update(d)
-        # n8n from priority
-        for k in ["n8n_workflow_agent"]:
-            if k in PRIORITY_AGENTS:
-                combined[k] = PRIORITY_AGENTS[k]
-        return combined
-
     all_domain_agents = _load_agents()
     for name, fn in all_domain_agents.items():
         workflow.add_node(name, _make_node(name, fn))
@@ -285,6 +377,7 @@ def build_graph() -> StateGraph:
 
     # ── Conditional routing from orchestrator ─────────────────────────────────
     route_targets = {
+        "parallel_executor":     "parallel_executor",
         "research_agent":        "research_agent",
         "api_design_agent":      "api_design_agent",
         "product_manager":       "product_manager",
@@ -305,7 +398,7 @@ def build_graph() -> StateGraph:
 
     # ── All non-terminal agents loop back to orchestrator ─────────────────────
     loop_back = [
-        "research_agent", "api_design_agent",
+        "parallel_executor", "research_agent", "api_design_agent",
         "product_manager", "architect", "code_generator",
         "code_reviewer", "qa_tester", "security_auditor",
         "dependency_agent", "performance_optimizer", "devops",
